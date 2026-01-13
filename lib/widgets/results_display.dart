@@ -74,33 +74,22 @@ class ResultsDisplay extends StatelessWidget {
         : GameConstants.inaccurateColor;
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            "${result.targetTime / 1000}s:",
-            style: TextStyle(fontSize: 16),
+          Icon(
+            Icons.check_circle,
+            color: diffColor,
+            size: 20,
           ),
-          Row(
-            children: [
-              Text(
-                result.formattedDifference,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: diffColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(width: 20),
-              Text(
-                "${result.score} pts",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.blue[700],
-                ),
-              ),
-            ],
+          SizedBox(width: 12),
+          Text(
+            "${(result.actualTime / 1000).toStringAsFixed(3)}s",
+            style: TextStyle(
+              fontSize: 18,
+              color: diffColor,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),

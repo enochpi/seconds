@@ -89,7 +89,7 @@ class _CountdownWidgetState extends State<CountdownWidget>
                     // Show the actual countdown value (3, 2, 1) - no "GO!"
                     widget.countdownValue.toString(),
                     style: TextStyle(
-                      fontSize: 48,
+                      fontSize: 70,
                       fontWeight: FontWeight.bold,
                       color: Colors.orange,
                     ),

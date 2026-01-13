@@ -96,8 +96,6 @@ class _GameScreenState extends State<GameScreen> {
           });
         }
       });
-
-      _showNewHighScoreDialog();
     };
   }
 
@@ -108,60 +106,10 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  void _showNewHighScoreDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.emoji_events, color: Colors.orange, size: 30),
-              SizedBox(width: 10),
-              Text('New High Score!'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '🎉 Congratulations! 🎉',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 10),
-              Text(
-                'Score: ${_gameService.totalScore}',
-                style: TextStyle(fontSize: 24, color: Colors.orange),
-              ),
-              SizedBox(height: 10),
-              Text('You beat your previous best!'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              child: Text('Awesome!'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Widget _buildStats() {
-    String targetDisplay = "Ready";
-
-    if (_gameService.state == GameState.playing &&
-        _gameService.currentTargetIndex < GameConstants.targetTimes.length) {
-      double target = GameConstants.targetTimes[_gameService.currentTargetIndex] / 1000.0;
-      targetDisplay = "${target.toStringAsFixed(1)}s";
-    }
-
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
         gradient: _showNewHighScoreAnimation
             ? LinearGradient(colors: [Colors.orange.shade200, Colors.yellow.shade100])
@@ -169,14 +117,29 @@ class _GameScreenState extends State<GameScreen> {
         borderRadius: BorderRadius.circular(10),
         border: _showNewHighScoreAnimation ? Border.all(color: Colors.orange, width: 2) : null,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildStatItem("High", "${_gameService.highScore}", Colors.purple.shade700),
-          _buildStatItem("Score", "${_gameService.totalScore}",
-              _showNewHighScoreAnimation ? Colors.orange.shade700 : Colors.blue.shade700),
-          _buildStatItem("Target", targetDisplay, Colors.green.shade700),
-        ],
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Score",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.blue.shade700,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              "${_gameService.totalScore}",
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: _showNewHighScoreAnimation ? Colors.orange.shade700 : Colors.blue.shade700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -244,32 +207,9 @@ class _GameScreenState extends State<GameScreen> {
           children: [
             _buildStats(),
 
-            Container(
-              height: 35,
-              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  _displayText,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.blue[800],
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              ),
-            ),
-
             if (_gameService.state == GameState.countdown)
               Container(
-                height: 60,
+                height: 160,
                 child: CountdownWidget(
                   countdownValue: _gameService.countdownValue,
                   isActive: true,
@@ -277,12 +217,12 @@ class _GameScreenState extends State<GameScreen> {
               )
             else if (_gameService.state == GameState.playing)
               Container(
-                height: 60,
+                height: 160,
                 child: Center(
                   child: Text(
                     "${_gameService.currentGameTimeDisplay}s",
                     style: TextStyle(
-                      fontSize: 28,
+                      fontSize: 70,
                       fontWeight: FontWeight.bold,
                       color: Colors.blue.shade800,
                       fontFeatures: [FontFeature.tabularFigures()],
@@ -291,63 +231,78 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               )
             else
-              SizedBox(height: 60),
-
-            Transform.scale(
-              scale: 0.85,
-              child: GameButton(
-                enabled: _buttonEnabled,
-                color: _buttonColor,
-                onTap: _gameService.handleTap,
-              ),
-            ),
-
-            SizedBox(height: 10),
-
-            if (_gameService.state == GameState.ended)
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: ResultsDisplay(
-                    results: _gameService.tapResults,
-                    totalScore: _gameService.totalScore,
-                    showTotal: true,
-                  ),
-                ),
-              )
-            else
-              Spacer(),
+              SizedBox(height: 160),
 
             Container(
-              margin: EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Row(
+              height: 200,  // ← Add container with height
+              child: Stack(
                 children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _gameService.state == GameState.ready
-                          ? _gameService.startGame
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 12),
+                  // Centered button
+                  Center(
+                    child: Transform.scale(
+                      scale: 1.2,
+                      child: GameButton(
+                        enabled: _buttonEnabled,
+                        color: _buttonColor,
+                        onTap: _gameService.handleTap,
                       ),
-                      child: Text("Start", style: TextStyle(fontSize: 16)),
                     ),
                   ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _gameService.resetToReady,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: Text("Reset", style: TextStyle(fontSize: 16)),
+                  // Results on the right edge
+                  Positioned(
+                    right: 16,
+                    top: 0,  // ← Add this to align from top
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: _gameService.tapResults
+                          .map((result) => Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          "${(result.actualTime / 1000).toStringAsFixed(3)}s",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: result.isAccurate
+                                ? Colors.green
+                                : result.isOkay
+                                ? Colors.orange
+                                : Colors.red,
+                          ),
+                        ),
+                      ))
+                          .toList(),
                     ),
                   ),
                 ],
+              ),
+            ),
+              Spacer(),
+
+            Container(
+              margin: EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Center(
+                child: SizedBox(
+                  width: 200,  // ← Button width
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (_gameService.state == GameState.ended ||
+                          _gameService.state == GameState.playing) {
+                        _gameService.resetToReady();
+                      }
+                      _gameService.startGame();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: Text(
+                        _gameService.state == GameState.playing ? "Restart" : "Start",
+                        style: TextStyle(fontSize: 20)
+                    ),
+                  ),
+                ),
               ),
             ),
           ],

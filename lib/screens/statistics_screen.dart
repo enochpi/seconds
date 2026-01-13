@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
-import '../utils/constants.dart';
 
 class StatisticsScreen extends StatelessWidget {
   @override
@@ -8,9 +7,6 @@ class StatisticsScreen extends StatelessWidget {
     final highScore = StorageService.getHighScore();
     final gamesPlayed = StorageService.getGamesPlayed();
     final bestAccuracy = StorageService.getBestAccuracy();
-    final exactHighLevel = StorageService.getExactModeHighLevel();
-    final exactGamesPlayed = StorageService.getExactModeGamesPlayed();
-    final exactModeUnlocked = StorageService.isExactModeUnlocked();
 
     return Scaffold(
       appBar: AppBar(
@@ -23,7 +19,7 @@ class StatisticsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle('Free Mode Statistics'),
+            _buildSectionTitle('Game Statistics'),
             _buildStatCard(
               Icons.emoji_events,
               'High Score',
@@ -47,33 +43,8 @@ class StatisticsScreen extends StatelessWidget {
 
             SizedBox(height: 24),
 
-            _buildSectionTitle('Exact Mode Statistics'),
-            if (!exactModeUnlocked) ...[
-              _buildLockedCard(),
-            ] else ...[
-              _buildStatCard(
-                Icons.military_tech,
-                'Highest Level',
-                'Level $exactHighLevel / ${GameConstants.exactModeTargets.length}',
-                Colors.purple,
-              ),
-              _buildStatCard(
-                Icons.loop,
-                'Attempts',
-                '$exactGamesPlayed',
-                Colors.deepPurple,
-              ),
-              _buildProgressBar(
-                'Level Progress',
-                exactHighLevel,
-                GameConstants.exactModeTargets.length,
-              ),
-            ],
-
-            SizedBox(height: 24),
-
             _buildSectionTitle('Achievements'),
-            _buildAchievements(highScore, exactHighLevel, gamesPlayed),
+            _buildAchievements(highScore, gamesPlayed),
 
             SizedBox(height: 24),
 
@@ -130,49 +101,7 @@ class StatisticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLockedCard() {
-    return Card(
-      margin: EdgeInsets.symmetric(vertical: 8),
-      color: Colors.grey[100],
-      child: ListTile(
-        leading: Icon(Icons.lock, color: Colors.grey),
-        title: Text('Exact Mode Locked'),
-        subtitle: Text('Score ${GameConstants.exactModeUnlockScore}+ points to unlock'),
-      ),
-    );
-  }
-
-  Widget _buildProgressBar(String label, int current, int total) {
-    final progress = total > 0 ? current / total : 0.0;
-
-    return Card(
-      margin: EdgeInsets.symmetric(vertical: 8),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(label),
-                Text('$current / $total'),
-              ],
-            ),
-            SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.grey[300],
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
-              minHeight: 8,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAchievements(int highScore, int exactHighLevel, int gamesPlayed) {
+  Widget _buildAchievements(int highScore, int gamesPlayed) {
     final achievements = [
       Achievement(
         'First Steps',
@@ -191,24 +120,6 @@ class StatisticsScreen extends StatelessWidget {
         'Score 3500+ points',
         Icons.timer,
         highScore >= 3500,
-      ),
-      Achievement(
-        'Unlock Master',
-        'Unlock Exact Mode',
-        Icons.lock_open,
-        highScore >= GameConstants.exactModeUnlockScore,
-      ),
-      Achievement(
-        'Precision Expert',
-        'Reach Level 5 in Exact Mode',
-        Icons.precision_manufacturing,
-        exactHighLevel >= 5,
-      ),
-      Achievement(
-        'Perfect Timing',
-        'Complete all Exact Mode levels',
-        Icons.star,
-        exactHighLevel >= GameConstants.exactModeTargets.length,
       ),
     ];
 
@@ -242,7 +153,7 @@ class StatisticsScreen extends StatelessWidget {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Reset All Data?'),
-          content: Text('This will permanently delete all your progress, high scores, and unlocks. This action cannot be undone.'),
+          content: Text('This will permanently delete all your progress and high scores. This action cannot be undone.'),
           actions: [
             TextButton(
               child: Text('Cancel'),

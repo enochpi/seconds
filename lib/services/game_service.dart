@@ -39,10 +39,6 @@ class GameService {
   double get bestAccuracy => _bestAccuracy;
   bool get isNewHighScore => _totalScore > _highScore && _totalScore > 0;
 
-  // Exact Mode unlock checking
-  bool get canUnlockExactMode => _totalScore >= GameConstants.exactModeUnlockScore;
-  bool get shouldShowUnlockAnimation => canUnlockExactMode && !StorageService.isExactModeUnlocked();
-
   // Callbacks
   Function(GameState)? onStateChanged;
   Function(int)? onCountdownUpdate;
@@ -95,6 +91,11 @@ class GameService {
         Duration(milliseconds: GameConstants.updateInterval),
             (timer) {
           if (_state == GameState.playing) {
+            // Check if over 20 seconds - reset if so
+            if (currentGameTime >= 20.0) {
+              resetToReady();
+              return;
+            }
             onGameTimeUpdate?.call(currentGameTimeDisplay);
           }
         }
@@ -142,9 +143,6 @@ class GameService {
     // Update statistics
     await _updateStatistics();
 
-    // Check for exact mode unlock
-    await _checkExactModeUnlock();
-
     onStateChanged?.call(_state);
   }
 
@@ -170,13 +168,6 @@ class GameService {
         _bestAccuracy = averageAccuracy;
         await StorageService.setBestAccuracy(averageAccuracy);
       }
-    }
-  }
-
-  Future<void> _checkExactModeUnlock() async {
-    if (shouldShowUnlockAnimation) {
-      await StorageService.unlockExactMode();
-      onExactModeUnlocked?.call();
     }
   }
 
