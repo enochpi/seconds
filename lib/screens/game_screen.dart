@@ -171,7 +171,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Reaction Timer'),
+        title: Text('7 Seconds'),
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,
         actions: [

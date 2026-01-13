@@ -59,6 +59,15 @@ class GameService {
   }
 
   void startGame() {
+    // Prevent spam - only start if in ready state
+    if (_state != GameState.ready) {
+      return;  // ← Block if already counting down or playing
+    }
+
+    // Make sure everything is stopped first
+    _timerService.cancelTimer();
+    _timerService.stopStopwatch();
+
     _resetGame();
     _state = GameState.countdown;
     _countdownValue = GameConstants.countdownDuration;
@@ -134,11 +143,13 @@ class GameService {
   }
 
   Future<void> _endGame() async {
-    if (_state == GameState.ended) return; // ADDED: Prevent double execution
+    if (_state == GameState.ended) return;
 
-    _state = GameState.ended;
+    // Stop EVERYTHING
     _timerService.cancelTimer();
     _timerService.stopStopwatch();
+
+    _state = GameState.ended;
 
     // Update statistics
     await _updateStatistics();
@@ -174,16 +185,15 @@ class GameService {
   void _resetGame() {
     _timerService.dispose();
 
-    // ADDED: Ensure index is always within valid bounds
     _currentTargetIndex = 0;
     if (_currentTargetIndex < 0) _currentTargetIndex = 0;
     if (_currentTargetIndex >= GameConstants.targetTimes.length) {
       _currentTargetIndex = GameConstants.targetTimes.length - 1;
     }
 
-    _tapResults.clear(); // ADDED: Prevents memory leak
+    _tapResults.clear();
     _totalScore = 0;
-    _countdownValue = GameConstants.countdownDuration;
+    _countdownValue = GameConstants.countdownDuration;  // ← CHANGE THIS LINE
   }
 
   void resetToReady() {

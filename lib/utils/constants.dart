@@ -10,6 +10,4 @@ class GameConstants {
   static const Color accurateColor = Colors.green;
   static const Color okayColor = Colors.orange;
   static const Color inaccurateColor = Colors.red;
-  static const Color lockedColor = Colors.grey;
-  static const Color unlockedColor = Color(0xFFFFD700); // Gold color
 }

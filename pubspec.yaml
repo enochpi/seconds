@@ -1,6 +1,5 @@
 name: seconds
-description: Test your reaction time and reflexes by tapping at exact moments. Challenge yourself with precision timing games.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+description: "Test your reaction time! Tap at exactly 1, 2, 3, 4, 5, 6, and 7 seconds."
 
 version: 1.0.0+1
 
