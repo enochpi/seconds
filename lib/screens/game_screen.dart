@@ -234,13 +234,13 @@ class _GameScreenState extends State<GameScreen> {
               SizedBox(height: 160),
 
             Container(
-              height: 200,  // ← Add container with height
+              height: 250,  // ← Add container with height
               child: Stack(
                 children: [
                   // Centered button
                   Center(
                     child: Transform.scale(
-                      scale: 1.2,
+                      scale: 1.6,
                       child: GameButton(
                         enabled: _buttonEnabled,
                         color: _buttonColor,
@@ -249,35 +249,39 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ),
                   // Results on the right edge
+                  // Results on the right edge
                   Positioned(
                     right: 16,
-                    top: 0,  // ← Add this to align from top
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: _gameService.tapResults
-                          .map((result) => Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          "${(result.actualTime / 1000).toStringAsFixed(3)}s",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: result.isAccurate
-                                ? Colors.green
-                                : result.isOkay
-                                ? Colors.orange
-                                : Colors.red,
+                    top: 0,
+                    height: 250,  // ← ADD THIS - match container height
+                    child: SingleChildScrollView(  // ← Wrap in scroll view
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: _gameService.tapResults
+                            .map((result) => Padding(
+                          padding: EdgeInsets.symmetric(vertical: 6),  // ← Reduced from 8 to 6
+                          child: Text(
+                            "${(result.actualTime / 1000).toStringAsFixed(3)}s",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: result.isAccurate
+                                  ? Colors.green
+                                  : result.isOkay
+                                  ? Colors.orange
+                                  : Colors.red,
+                            ),
                           ),
-                        ),
-                      ))
-                          .toList(),
+                        ))
+                            .toList(),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-              Spacer(),
+              SizedBox(height: 120),
 
             Container(
               margin: EdgeInsets.fromLTRB(16, 8, 16, 8),
