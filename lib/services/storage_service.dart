@@ -1,5 +1,4 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/game_mode.dart';
 
 class StorageService {
   static const String _highScoreKey = 'high_score';

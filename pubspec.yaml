@@ -1,5 +1,5 @@
 name: seconds
-description: A reaction timer game with multiple modes and precision challenges.
+description: Test your reaction time and reflexes by tapping at exact moments. Challenge yourself with precision timing games.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 version: 1.0.0+1
