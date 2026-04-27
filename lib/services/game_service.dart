@@ -61,7 +61,7 @@ class GameService {
   void startGame() {
     // Prevent spam - only start if in ready state
     if (_state != GameState.ready) {
-      return;  // ← Block if already counting down or playing
+      resetToReady();
     }
 
     // Make sure everything is stopped first
@@ -102,7 +102,7 @@ class GameService {
           if (_state == GameState.playing) {
             // Check if over 20 seconds - reset if so
             if (currentGameTime >= 20.0) {
-              resetToReady();
+              _endGame();
               return;
             }
             onGameTimeUpdate?.call(currentGameTimeDisplay);

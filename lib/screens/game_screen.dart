@@ -53,7 +53,7 @@ class _GameScreenState extends State<GameScreen> {
             _updatePlayingText();
             break;
           case GameState.ended:
-            _displayText = "Game Over! Score: ${_gameService.totalScore}";
+            _displayText = "Time's up! Score: ${_gameService.totalScore}";
             _buttonColor = Colors.blue;
             _buttonEnabled = false;
             break;
@@ -281,7 +281,7 @@ class _GameScreenState extends State<GameScreen> {
                 ],
               ),
             ),
-              SizedBox(height: 120),
+              Spacer(),
 
             Container(
               margin: EdgeInsets.fromLTRB(16, 8, 16, 8),

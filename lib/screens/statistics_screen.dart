@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 
-class StatisticsScreen extends StatelessWidget {
+class StatisticsScreen extends StatefulWidget {
+  @override
+  _StatisticsScreenState createState() => _StatisticsScreenState();
+}
+
+class _StatisticsScreenState extends State<StatisticsScreen> {
+
   @override
   Widget build(BuildContext context) {
     final highScore = StorageService.getHighScore();
@@ -111,15 +117,15 @@ class StatisticsScreen extends StatelessWidget {
       ),
       Achievement(
         'Getting Good',
-        'Score 2000+ points',
+        'Score 6000+ points',
         Icons.trending_up,
-        highScore >= 2000,
+        highScore >= 5000,
       ),
       Achievement(
         'Master Timer',
-        'Score 3500+ points',
+        'Score 6900+ points',
         Icons.timer,
-        highScore >= 3500,
+        highScore >= 6500,
       ),
     ];
 
@@ -153,7 +159,8 @@ class StatisticsScreen extends StatelessWidget {
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Reset All Data?'),
-          content: Text('This will permanently delete all your progress and high scores. This action cannot be undone.'),
+          content: Text(
+              'This will permanently delete all your progress and high scores. This action cannot be undone.'),
           actions: [
             TextButton(
               child: Text('Cancel'),
@@ -163,7 +170,12 @@ class StatisticsScreen extends StatelessWidget {
               child: Text('Reset', style: TextStyle(color: Colors.red)),
               onPressed: () async {
                 await StorageService.clearAllData();
+
+                // 🔥 THIS IS THE IMPORTANT FIX
+                setState(() {});
+
                 Navigator.of(context).pop();
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('All data has been reset'),
