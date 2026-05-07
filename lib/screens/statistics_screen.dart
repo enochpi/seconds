@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
+import '../services/game_service.dart';
 
 class StatisticsScreen extends StatefulWidget {
+  final GameService gameService;
+
+  const StatisticsScreen({Key? key, required this.gameService}) : super(key: key);
+
   @override
   _StatisticsScreenState createState() => _StatisticsScreenState();
 }
@@ -169,7 +174,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             TextButton(
               child: Text('Reset', style: TextStyle(color: Colors.red)),
               onPressed: () async {
-                await StorageService.clearAllData();
+                await widget.gameService.clearAllData();
 
                 // 🔥 THIS IS THE IMPORTANT FIX
                 setState(() {});

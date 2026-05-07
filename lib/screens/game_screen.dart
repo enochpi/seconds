@@ -180,7 +180,7 @@ class _GameScreenState extends State<GameScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => StatisticsScreen()),
+                MaterialPageRoute(builder: (context) => StatisticsScreen(gameService: _gameService)),
               );
             },
           ),
