@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save your result card as an image so you can share it to Instagram Stories, LinkedIn, and other apps.</string>
 </dict>
 </plist>

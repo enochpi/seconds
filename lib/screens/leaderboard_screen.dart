@@ -71,7 +71,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           content: TextField(
             controller: controller,
             maxLength: 16,
-            autofocus: true,
+            autofocus: false,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w800,

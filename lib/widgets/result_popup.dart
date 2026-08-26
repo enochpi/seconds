@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -25,6 +27,7 @@ class ResultPopup extends StatefulWidget {
 class _ResultPopupState extends State<ResultPopup> {
   final GlobalKey _shareCardKey = GlobalKey();
   bool _isSharing = false;
+  bool _isSaving = false;
 
   GameService get gameService => widget.gameService;
 
@@ -319,7 +322,7 @@ class _ResultPopupState extends State<ResultPopup> {
     final playerName = StorageService.getPlayerName();
 
     const appStoreLink =
-        "https://play.google.com/store/apps/details?id=com.spartalabs.sevenseconds&hl=ko";
+        "https://play.google.com/store/apps/details?id=com.spartalabs.sevenseconds";
 
     switch (gameService.mode) {
       case GameMode.classic:
@@ -352,39 +355,42 @@ class _ResultPopupState extends State<ResultPopup> {
     }
   }
 
+  Future<Uint8List> _captureCardBytes() async {
+    await WidgetsBinding.instance.endOfFrame;
+    await Future.delayed(const Duration(milliseconds: 180));
+
+    final cardContext = _shareCardKey.currentContext;
+
+    if (cardContext == null) {
+      throw Exception("Share card is not ready yet");
+    }
+
+    final boundary = cardContext.findRenderObject() as RenderRepaintBoundary;
+
+    if (boundary.debugNeedsPaint) {
+      await WidgetsBinding.instance.endOfFrame;
+      await Future.delayed(const Duration(milliseconds: 180));
+    }
+
+    final image = await boundary.toImage(pixelRatio: 3.0);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    if (byteData == null) {
+      throw Exception("Could not convert image");
+    }
+
+    return byteData.buffer.asUint8List();
+  }
+
   Future<void> _shareResultCard() async {
     if (_isSharing) return;
 
+    setState(() {
+      _isSharing = true;
+    });
+
     try {
-      setState(() {
-        _isSharing = true;
-      });
-
-      await WidgetsBinding.instance.endOfFrame;
-      await Future.delayed(const Duration(milliseconds: 180));
-
-      final cardContext = _shareCardKey.currentContext;
-
-      if (cardContext == null) {
-        throw Exception("Share card is not ready yet");
-      }
-
-      final boundary =
-      cardContext.findRenderObject() as RenderRepaintBoundary;
-
-      if (boundary.debugNeedsPaint) {
-        await WidgetsBinding.instance.endOfFrame;
-        await Future.delayed(const Duration(milliseconds: 180));
-      }
-
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-
-      if (byteData == null) {
-        throw Exception("Could not convert image");
-      }
-
-      final pngBytes = byteData.buffer.asUint8List();
+      final pngBytes = await _captureCardBytes();
 
       final tempDir = await getTemporaryDirectory();
       final file = File(
@@ -399,17 +405,78 @@ class _ResultPopupState extends State<ResultPopup> {
         subject: "Can you beat me in 7 Seconds?",
       );
     } catch (e) {
+      // Image rendering failed for some reason (e.g. low memory) — still
+      // let people share the score as plain text instead of failing silently.
+      try {
+        await Share.share(
+          getShareText(),
+          subject: "Can you beat me in 7 Seconds?",
+        );
+      } catch (_) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Couldn't share result card. Try again."),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSharing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _copyCaption() async {
+    await Clipboard.setData(ClipboardData(text: getShareText()));
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Caption copied! Paste it when posting to Instagram or LinkedIn.",
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveResultImage() async {
+    if (_isSaving) return;
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final pngBytes = await _captureCardBytes();
+      await Gal.putImageBytes(
+        pngBytes,
+        name: 'seven_seconds_result_${DateTime.now().millisecondsSinceEpoch}',
+      );
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Couldn't share result card. Try again."),
+          content: Text("Saved! Ready to post to Instagram Stories."),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Couldn't save the image. Try again."),
         ),
       );
     } finally {
       if (mounted) {
         setState(() {
-          _isSharing = false;
+          _isSaving = false;
         });
       }
     }
@@ -780,7 +847,43 @@ class _ResultPopupState extends State<ResultPopup> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: _copyCaption,
+                        icon: const Icon(Icons.copy_rounded, size: 18),
+                        label: const Text("Copy Caption"),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.grey.shade400,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: _isSaving ? null : _saveResultImage,
+                        icon: _isSaving
+                            ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.grey.shade400,
+                          ),
+                        )
+                            : const Icon(Icons.download_rounded, size: 18),
+                        label: Text(_isSaving ? "Saving..." : "Save Image"),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.grey.shade400,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(

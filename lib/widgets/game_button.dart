@@ -54,6 +54,8 @@ class _GameButtonState extends State<GameButton>
     widget.onTap?.call();
 
     _animationController.forward().then((_) {
+      if (!mounted) return;
+
       _animationController.reverse().then((_) {
         if (mounted) {
           _isProcessing = false;

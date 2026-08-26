@@ -757,6 +757,9 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Widget _buildStartButton() {
+    final isSessionActive = _gameService.state == GameState.countdown ||
+        _gameService.state == GameState.playing;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 6, 16, 12),
       child: Center(
@@ -764,15 +767,14 @@ class _GameScreenState extends State<GameScreen>
           width: 220,
           child: ElevatedButton(
             onPressed: () {
-              if (_gameService.state == GameState.ended ||
-                  _gameService.state == GameState.playing) {
+              if (isSessionActive) {
                 _gameService.resetToReady();
+              } else {
+                _gameService.startGame();
               }
-
-              _gameService.startGame();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
+              backgroundColor: isSessionActive ? Colors.red : Colors.green,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 15),
               shape: RoundedRectangleBorder(
@@ -781,7 +783,7 @@ class _GameScreenState extends State<GameScreen>
               elevation: 6,
             ),
             child: Text(
-              _gameService.state == GameState.playing ? "Restart" : "Start",
+              isSessionActive ? "Stop" : "Start",
               style: const TextStyle(
                 fontSize: 21,
                 fontWeight: FontWeight.w900,
