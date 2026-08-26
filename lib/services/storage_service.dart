@@ -1,31 +1,105 @@
+
+
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/leaderboard_entry.dart';
+import '../utils/constants.dart';
 
 class StorageService {
   static const String _highScoreKey = 'high_score';
   static const String _gamesPlayedKey = 'games_played';
   static const String _bestAccuracyKey = 'best_accuracy';
-  static const String _exactModeUnlockedKey = 'exact_mode_unlocked';
-  static const String _exactModeHighLevelKey = 'exact_mode_high_level';
-  static const String _exactModeGamesPlayedKey = 'exact_mode_games_played';
+  static const String _hasSeenTutorialKey = 'has_seen_tutorial';
+
+  static const String _playerNameKey = 'player_name';
+
+  static const String _modeBestPrefix = 'mode_best_';
+
+  static const String _unlockedAchievementIdsKey =
+      'unlocked_achievement_ids';
+
+  static const String _leaderboardEntriesKey =
+      'leaderboard_entries';
+
+  static const String _dailyChallengeDateKey =
+      'daily_challenge_date';
+
+  static const String _dailyChallengeBestScoreKey =
+      'daily_challenge_best_score';
 
   static SharedPreferences? _prefs;
 
-  // Initialize the service
   static Future<void> init() async {
     try {
       _prefs = await SharedPreferences.getInstance();
     } catch (e) {
       print('Error initializing StorageService: $e');
-      // Continue without storage - app will work but won't save data
     }
   }
 
-  // Free Mode methods with error handling
+  // PLAYER NAME
+
+  static String getPlayerName() {
+    try {
+      final name = _prefs?.getString(_playerNameKey);
+
+      if (name == null || name.trim().isEmpty) {
+        return 'Player';
+      }
+
+      return name.trim();
+    } catch (e) {
+      return 'Player';
+    }
+  }
+
+  static Future<bool> setPlayerName(String name) async {
+    try {
+      final cleanName = name.trim().isEmpty ? 'Player' : name.trim();
+
+      return await _prefs?.setString(_playerNameKey, cleanName) ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // MODE PERSONAL BESTS
+
+  static String _modeBestKey(GameMode mode) {
+    return '$_modeBestPrefix${mode.name}';
+  }
+
+  static int getModeBestScore(GameMode mode) {
+    try {
+      return _prefs?.getInt(_modeBestKey(mode)) ?? 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  static Future<bool> saveModeBestScore({
+    required GameMode mode,
+    required int score,
+  }) async {
+    try {
+      final currentBest = getModeBestScore(mode);
+
+      if (score <= currentBest) {
+        return false;
+      }
+
+      return await _prefs?.setInt(_modeBestKey(mode), score) ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // BASIC STATS
+
   static int getHighScore() {
     try {
       return _prefs?.getInt(_highScoreKey) ?? 0;
     } catch (e) {
-      print('Error getting high score: $e');
       return 0;
     }
   }
@@ -34,7 +108,6 @@ class StorageService {
     try {
       return await _prefs?.setInt(_highScoreKey, score) ?? false;
     } catch (e) {
-      print('Error setting high score: $e');
       return false;
     }
   }
@@ -43,17 +116,16 @@ class StorageService {
     try {
       return _prefs?.getInt(_gamesPlayedKey) ?? 0;
     } catch (e) {
-      print('Error getting games played: $e');
       return 0;
     }
   }
 
   static Future<bool> incrementGamesPlayed() async {
     try {
-      int current = getGamesPlayed();
+      final current = getGamesPlayed();
+
       return await _prefs?.setInt(_gamesPlayedKey, current + 1) ?? false;
     } catch (e) {
-      print('Error incrementing games played: $e');
       return false;
     }
   }
@@ -62,7 +134,6 @@ class StorageService {
     try {
       return _prefs?.getDouble(_bestAccuracyKey) ?? double.infinity;
     } catch (e) {
-      print('Error getting best accuracy: $e');
       return double.infinity;
     }
   }
@@ -71,92 +142,404 @@ class StorageService {
     try {
       return await _prefs?.setDouble(_bestAccuracyKey, accuracy) ?? false;
     } catch (e) {
-      print('Error setting best accuracy: $e');
       return false;
     }
   }
 
-  // Exact Mode methods with error handling
-  static bool isExactModeUnlocked() {
+  static bool hasSeenTutorial() {
     try {
-      return _prefs?.getBool(_exactModeUnlockedKey) ?? false;
+      return _prefs?.getBool(_hasSeenTutorialKey) ?? false;
     } catch (e) {
-      print('Error checking exact mode unlock: $e');
       return false;
     }
   }
 
-  static Future<bool> unlockExactMode() async {
+  static Future<bool> setTutorialSeen() async {
     try {
-      return await _prefs?.setBool(_exactModeUnlockedKey, true) ?? false;
+      return await _prefs?.setBool(_hasSeenTutorialKey, true) ?? false;
     } catch (e) {
-      print('Error unlocking exact mode: $e');
       return false;
     }
   }
 
-  static int getExactModeHighLevel() {
+  // ACHIEVEMENTS
+
+  static List<String> getUnlockedAchievementIds() {
     try {
-      return _prefs?.getInt(_exactModeHighLevelKey) ?? 0;
+      return _prefs?.getStringList(_unlockedAchievementIdsKey) ?? [];
     } catch (e) {
-      print('Error getting exact mode high level: $e');
+      return [];
+    }
+  }
+
+  static bool isAchievementUnlocked(String id) {
+    return getUnlockedAchievementIds().contains(id);
+  }
+
+  static Future<bool> unlockAchievement(String id) async {
+    try {
+      final ids = getUnlockedAchievementIds();
+
+      if (!ids.contains(id)) {
+        ids.add(id);
+      }
+
+      return await _prefs?.setStringList(
+        _unlockedAchievementIdsKey,
+        ids,
+      ) ??
+          false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<void> unlockAchievements(List<String> idsToUnlock) async {
+    try {
+      final ids = getUnlockedAchievementIds();
+
+      for (final id in idsToUnlock) {
+        if (!ids.contains(id)) {
+          ids.add(id);
+        }
+      }
+
+      await _prefs?.setStringList(_unlockedAchievementIdsKey, ids);
+    } catch (e) {
+      print('Error unlocking achievements: $e');
+    }
+  }
+
+  // DAILY CHALLENGE
+
+  static int getDailyChallengeBestScore(String challengeId) {
+    try {
+      final savedDate = _prefs?.getString(_dailyChallengeDateKey);
+
+      if (savedDate != challengeId) {
+        return 0;
+      }
+
+      return _prefs?.getInt(_dailyChallengeBestScoreKey) ?? 0;
+    } catch (e) {
       return 0;
     }
   }
 
-  static Future<bool> setExactModeHighLevel(int level) async {
+  static Future<bool> saveDailyChallengeScore({
+    required String challengeId,
+    required int score,
+  }) async {
     try {
-      return await _prefs?.setInt(_exactModeHighLevelKey, level) ?? false;
+      final currentBest = getDailyChallengeBestScore(challengeId);
+
+      if (score <= currentBest) {
+        return false;
+      }
+
+      await _prefs?.setString(_dailyChallengeDateKey, challengeId);
+
+      return await _prefs?.setInt(
+        _dailyChallengeBestScoreKey,
+        score,
+      ) ??
+          false;
     } catch (e) {
-      print('Error setting exact mode high level: $e');
       return false;
     }
   }
 
-  static int getExactModeGamesPlayed() {
+  // LOCAL LEADERBOARD
+
+  static List<LeaderboardEntry> _getSavedLeaderboardEntries() {
     try {
-      return _prefs?.getInt(_exactModeGamesPlayedKey) ?? 0;
+      final rawEntries =
+          _prefs?.getStringList(_leaderboardEntriesKey) ?? [];
+
+      return rawEntries
+          .map((raw) => LeaderboardEntry.fromJson(raw))
+          .where((entry) => !entry.isBot)
+          .toList();
     } catch (e) {
-      print('Error getting exact mode games played: $e');
-      return 0;
+      return [];
     }
   }
 
-  static Future<bool> incrementExactModeGamesPlayed() async {
+  static List<LeaderboardEntry> getLeaderboardEntries() {
     try {
-      int current = getExactModeGamesPlayed();
-      return await _prefs?.setInt(_exactModeGamesPlayedKey, current + 1) ?? false;
+      final realEntries = _getSavedLeaderboardEntries();
+      final botEntries = _getBotLeaderboardEntries();
+
+      final allEntries = [
+        ...realEntries,
+        ...botEntries,
+      ];
+
+      allEntries.sort((a, b) => b.score.compareTo(a.score));
+
+      return allEntries;
     } catch (e) {
-      print('Error incrementing exact mode games played: $e');
+      return [];
+    }
+  }
+
+  static Future<bool> addLeaderboardEntry(
+      LeaderboardEntry entry,
+      ) async {
+    try {
+      final entries = _getSavedLeaderboardEntries();
+
+      entries.add(
+        LeaderboardEntry(
+          playerName: entry.playerName,
+          score: entry.score,
+          rank: entry.rank,
+          accuracyText: entry.accuracyText,
+          mode: entry.mode,
+          createdAt: entry.createdAt,
+          isBot: false,
+        ),
+      );
+
+      entries.sort((a, b) => b.score.compareTo(a.score));
+
+      final topEntries = entries.take(30).toList();
+
+      return await _prefs?.setStringList(
+        _leaderboardEntriesKey,
+        topEntries.map((entry) => entry.toJson()).toList(),
+      ) ??
+          false;
+    } catch (e) {
       return false;
     }
   }
 
-  // Clear all data with error handling
+  static Future<bool> clearLeaderboard() async {
+    try {
+      return await _prefs?.remove(_leaderboardEntriesKey) ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static List<LeaderboardEntry> _getBotLeaderboardEntries() {
+    final now = DateTime.now();
+
+    return [
+      // CLASSIC
+      _bot(
+        name: 'Tapzilla',
+        score: 6928,
+        rank: '🎯 Esports Pro',
+        accuracy: '±6ms',
+        mode: GameMode.classic,
+        createdAt: now.subtract(const Duration(days: 2)),
+      ),
+      _bot(
+        name: 'PixelNinja',
+        score: 6847,
+        rank: '🐆 Cheetah',
+        accuracy: '±13ms',
+        mode: GameMode.classic,
+        createdAt: now.subtract(const Duration(days: 3)),
+      ),
+      _bot(
+        name: 'TurboTurtle',
+        score: 6430,
+        rank: '🐍 Cobra Reflexes',
+        accuracy: '±48ms',
+        mode: GameMode.classic,
+        createdAt: now.subtract(const Duration(days: 4)),
+      ),
+      _bot(
+        name: 'LateLarry',
+        score: 5110,
+        rank: '🐢 Steady Turtle',
+        accuracy: '±158ms',
+        mode: GameMode.classic,
+        createdAt: now.subtract(const Duration(days: 5)),
+      ),
+
+      // BLIND
+      _bot(
+        name: 'RhythmGhost',
+        score: 6765,
+        rank: '🐈 Alley Cat',
+        accuracy: '±20ms',
+        mode: GameMode.blind,
+        createdAt: now.subtract(const Duration(days: 1)),
+      ),
+      _bot(
+        name: 'NoLookNora',
+        score: 6412,
+        rank: '🐍 Cobra Reflexes',
+        accuracy: '±49ms',
+        mode: GameMode.blind,
+        createdAt: now.subtract(const Duration(days: 2)),
+      ),
+      _bot(
+        name: 'BlindBeats',
+        score: 5880,
+        rank: '🐢 Steady Turtle',
+        accuracy: '±93ms',
+        mode: GameMode.blind,
+        createdAt: now.subtract(const Duration(days: 3)),
+      ),
+      _bot(
+        name: 'SleepySloth',
+        score: 3975,
+        rank: '🦥 Sleeping Sloth',
+        accuracy: '±252ms',
+        mode: GameMode.blind,
+        createdAt: now.subtract(const Duration(days: 6)),
+      ),
+
+      // HARDCORE
+      _bot(
+        name: 'Almost7',
+        score: 6965,
+        rank: '⚡ Lightning Reflexes',
+        accuracy: '5ms late',
+        mode: GameMode.hardcore,
+        createdAt: now.subtract(const Duration(days: 1)),
+      ),
+      _bot(
+        name: 'SevenSensei',
+        score: 6895,
+        rank: '🦅 Peregrine Falcon',
+        accuracy: '15ms early',
+        mode: GameMode.hardcore,
+        createdAt: now.subtract(const Duration(days: 2)),
+      ),
+      _bot(
+        name: 'OneTapTom',
+        score: 6510,
+        rank: '🐍 Cobra Reflexes',
+        accuracy: '70ms late',
+        mode: GameMode.hardcore,
+        createdAt: now.subtract(const Duration(days: 3)),
+      ),
+      _bot(
+        name: 'PanicTap',
+        score: 2940,
+        rank: '🦥 Sleeping Sloth',
+        accuracy: '580ms early',
+        mode: GameMode.hardcore,
+        createdAt: now.subtract(const Duration(days: 4)),
+      ),
+
+      // DAILY
+      ..._getDailyBotEntries(),
+    ];
+  }
+
+  static List<LeaderboardEntry> _getDailyBotEntries() {
+    final now = DateTime.now();
+    final seed = now.year * 10000 + now.month * 100 + now.day;
+
+    final score1 = 6600 + ((seed * 17) % 320);
+    final score2 = 6100 + ((seed * 23) % 430);
+    final score3 = 5000 + ((seed * 31) % 700);
+    final score4 = 3200 + ((seed * 43) % 1200);
+
+    return [
+      _dailyBot(
+        name: 'DailyDemon',
+        score: score1,
+        createdAt: now.subtract(const Duration(hours: 2)),
+      ),
+      _dailyBot(
+        name: 'CalendarCat',
+        score: score2,
+        createdAt: now.subtract(const Duration(hours: 4)),
+      ),
+      _dailyBot(
+        name: 'TodayTapper',
+        score: score3,
+        createdAt: now.subtract(const Duration(hours: 6)),
+      ),
+      _dailyBot(
+        name: 'MissedByMiles',
+        score: score4,
+        createdAt: now.subtract(const Duration(hours: 8)),
+      ),
+    ];
+  }
+
+  static LeaderboardEntry _dailyBot({
+    required String name,
+    required int score,
+    required DateTime createdAt,
+  }) {
+    final offByMs = ((7000 - score) / 7).round();
+
+    return LeaderboardEntry(
+      playerName: name,
+      score: score,
+      rank: _rankForScore(score),
+      accuracyText: '${offByMs}ms off',
+      mode: GameMode.daily,
+      createdAt: createdAt,
+      isBot: true,
+    );
+  }
+
+  static LeaderboardEntry _bot({
+    required String name,
+    required int score,
+    required String rank,
+    required String accuracy,
+    required GameMode mode,
+    required DateTime createdAt,
+  }) {
+    return LeaderboardEntry(
+      playerName: name,
+      score: score,
+      rank: rank,
+      accuracyText: accuracy,
+      mode: mode,
+      createdAt: createdAt,
+      isBot: true,
+    );
+  }
+
+  static String _rankForScore(int score) {
+    if (score >= 6975) return '🏎️ F1 Champion';
+    if (score >= 6950) return '⚡ Lightning Reflexes';
+    if (score >= 6925) return '🎯 Esports Pro';
+    if (score >= 6900) return '🥷 Shadow Ninja';
+    if (score >= 6875) return '🦅 Peregrine Falcon';
+    if (score >= 6850) return '🐆 Cheetah';
+    if (score >= 6800) return '🦊 Fast Fox';
+    if (score >= 6750) return '🐈 Alley Cat';
+    if (score >= 6600) return '🐺 Rising Wolf';
+    if (score >= 6000) return '🐍 Cobra Reflexes';
+    if (score >= 5000) return '🐢 Steady Turtle';
+
+    return '🦥 Sleeping Sloth';
+  }
+
   static Future<bool> clearAllData() async {
     try {
-      bool score = await _prefs?.remove(_highScoreKey) ?? false;
-      bool games = await _prefs?.remove(_gamesPlayedKey) ?? false;
-      bool accuracy = await _prefs?.remove(_bestAccuracyKey) ?? false;
-      bool exactUnlocked = await _prefs?.remove(_exactModeUnlockedKey) ?? false;
-      bool exactLevel = await _prefs?.remove(_exactModeHighLevelKey) ?? false;
-      bool exactGames = await _prefs?.remove(_exactModeGamesPlayedKey) ?? false;
-      return score && games && accuracy && exactUnlocked && exactLevel && exactGames;
+      await _prefs?.remove(_highScoreKey);
+      await _prefs?.remove(_gamesPlayedKey);
+      await _prefs?.remove(_bestAccuracyKey);
+      await _prefs?.remove(_unlockedAchievementIdsKey);
+      await _prefs?.remove(_leaderboardEntriesKey);
+      await _prefs?.remove(_dailyChallengeDateKey);
+      await _prefs?.remove(_dailyChallengeBestScoreKey);
+
+      for (final mode in GameMode.values) {
+        await _prefs?.remove(_modeBestKey(mode));
+      }
+
+      // Keep player name and tutorial status.
+      return true;
     } catch (e) {
-      print('Error clearing all data: $e');
       return false;
     }
   }
 
-  // NEW: Check if storage is working
   static bool get isStorageAvailable => _prefs != null;
-
-  // NEW: Get storage status for debugging
-  static String get storageStatus {
-    if (_prefs == null) {
-      return 'Storage unavailable - data will not persist';
-    } else {
-      return 'Storage working normally';
-    }
-  }
 }

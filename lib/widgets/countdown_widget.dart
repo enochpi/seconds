@@ -23,40 +23,48 @@ class _CountdownWidgetState extends State<CountdownWidget>
   @override
   void initState() {
     super.initState();
+
     _animationController = AnimationController(
-      duration: Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
 
     _scaleAnimation = Tween<double>(
-      begin: 0.5,
+      begin: 0.75,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.elasticOut,
-    ));
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.elasticOut,
+      ),
+    );
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    if (widget.isActive) {
+      _animationController.forward();
+    }
   }
 
   @override
   void didUpdateWidget(CountdownWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Trigger animation when countdown value changes
     if (widget.countdownValue != oldWidget.countdownValue && widget.isActive) {
       _animationController.reset();
       _animationController.forward();
     }
 
-    // Start animation when countdown becomes active
     if (widget.isActive && !oldWidget.isActive) {
+      _animationController.reset();
       _animationController.forward();
     }
   }
@@ -69,36 +77,38 @@ class _CountdownWidgetState extends State<CountdownWidget>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isActive) return Container();
+    if (!widget.isActive) {
+      return const SizedBox.shrink();
+    }
 
-    return Container(
-      padding: EdgeInsets.all(40),
-      child: AnimatedBuilder(
-        animation: _animationController,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: Opacity(
-              opacity: _fadeAnimation.value,
-              child: Container(
-                // Fixed size container to prevent layout shifts
-                width: 120,
-                height: 80,
-                child: Center(
+    return Center(
+      child: SizedBox(
+        width: 160,
+        height: 120,
+        child: AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnimation.value,
+              child: Opacity(
+                opacity: _fadeAnimation.value,
+                child: FittedBox(
+                  fit: BoxFit.contain,
                   child: Text(
-                    // Show the actual countdown value (3, 2, 1) - no "GO!"
                     widget.countdownValue.toString(),
-                    style: TextStyle(
-                      fontSize: 70,
-                      fontWeight: FontWeight.bold,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 72,
+                      fontWeight: FontWeight.w900,
                       color: Colors.orange,
+                      height: 1.0,
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

@@ -1,206 +1,123 @@
 import 'package:flutter/material.dart';
-import '../services/storage_service.dart';
+
 import '../services/game_service.dart';
 
-class StatisticsScreen extends StatefulWidget {
+class StatisticsScreen extends StatelessWidget {
   final GameService gameService;
 
-  const StatisticsScreen({Key? key, required this.gameService}) : super(key: key);
-
-  @override
-  _StatisticsScreenState createState() => _StatisticsScreenState();
-}
-
-class _StatisticsScreenState extends State<StatisticsScreen> {
+  const StatisticsScreen({
+    Key? key,
+    required this.gameService,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final highScore = StorageService.getHighScore();
-    final gamesPlayed = StorageService.getGamesPlayed();
-    final bestAccuracy = StorageService.getBestAccuracy();
+    final bestAccuracy = gameService.bestAccuracy == double.infinity
+        ? "N/A"
+        : "±${gameService.bestAccuracy.toStringAsFixed(0)}ms";
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Statistics'),
+        title: const Text(
+          'Statistics',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle('Game Statistics'),
             _buildStatCard(
-              Icons.emoji_events,
-              'High Score',
-              '$highScore points',
-              Colors.orange,
+              title: "High Score",
+              value: "${gameService.highScore}",
+              icon: Icons.emoji_events,
+              color: Colors.amber,
             ),
             _buildStatCard(
-              Icons.sports_esports,
-              'Games Played',
-              '$gamesPlayed',
-              Colors.blue,
+              title: "Games Played",
+              value: "${gameService.gamesPlayed}",
+              icon: Icons.sports_esports,
+              color: Colors.blue,
             ),
             _buildStatCard(
-              Icons.gps_fixed,
-              'Best Accuracy',
-              bestAccuracy == double.infinity
-                  ? 'No data yet'
-                  : '±${bestAccuracy.toStringAsFixed(0)}ms average',
-              Colors.green,
+              title: "Best Accuracy",
+              value: bestAccuracy,
+              icon: Icons.center_focus_strong,
+              color: Colors.green,
             ),
+            _buildStatCard(
+              title: "Current Rank",
+              value: gameService.reactionRank,
+              icon: Icons.speed,
+              color: Colors.deepPurple,
+            ),
+            _buildStatCard(
+              title: "Percentile",
+              value: gameService.percentile,
+              icon: Icons.leaderboard,
+              color: Colors.orange,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-            SizedBox(height: 24),
-
-            _buildSectionTitle('Achievements'),
-            _buildAchievements(highScore, gamesPlayed),
-
-            SizedBox(height: 24),
-
-            Center(
-              child: ElevatedButton.icon(
-                onPressed: () => _showResetDialog(context),
-                icon: Icon(Icons.delete_forever),
-                label: Text('Reset All Data'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.09),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: color.withOpacity(0.35),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: color.withOpacity(0.18),
+            child: Icon(
+              icon,
+              color: color,
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Colors.grey.shade700,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: Colors.grey[800],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(IconData icon, String label, String value, Color color) {
-    return Card(
-      margin: EdgeInsets.symmetric(vertical: 8),
-      elevation: 2,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withOpacity(0.2),
-          child: Icon(icon, color: color),
-        ),
-        title: Text(label),
-        trailing: Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAchievements(int highScore, int gamesPlayed) {
-    final achievements = [
-      Achievement(
-        'First Steps',
-        'Play your first game',
-        Icons.directions_walk,
-        gamesPlayed >= 1,
-      ),
-      Achievement(
-        'Getting Good',
-        'Score 6000+ points',
-        Icons.trending_up,
-        highScore >= 5000,
-      ),
-      Achievement(
-        'Master Timer',
-        'Score 6900+ points',
-        Icons.timer,
-        highScore >= 6500,
-      ),
-    ];
-
-    return Column(
-      children: achievements.map((achievement) => Card(
-        margin: EdgeInsets.symmetric(vertical: 4),
-        color: achievement.isUnlocked ? Colors.green[50] : Colors.grey[100],
-        child: ListTile(
-          leading: Icon(
-            achievement.icon,
-            color: achievement.isUnlocked ? Colors.green : Colors.grey,
-          ),
-          title: Text(
-            achievement.name,
-            style: TextStyle(
-              decoration: achievement.isUnlocked ? null : TextDecoration.lineThrough,
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: color,
+              ),
             ),
           ),
-          subtitle: Text(achievement.description),
-          trailing: achievement.isUnlocked
-              ? Icon(Icons.check_circle, color: Colors.green)
-              : Icon(Icons.circle_outlined, color: Colors.grey),
-        ),
-      )).toList(),
+        ],
+      ),
     );
   }
-
-  void _showResetDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Reset All Data?'),
-          content: Text(
-              'This will permanently delete all your progress and high scores. This action cannot be undone.'),
-          actions: [
-            TextButton(
-              child: Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: Text('Reset', style: TextStyle(color: Colors.red)),
-              onPressed: () async {
-                await widget.gameService.clearAllData();
-
-                // 🔥 THIS IS THE IMPORTANT FIX
-                setState(() {});
-
-                Navigator.of(context).pop();
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('All data has been reset'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class Achievement {
-  final String name;
-  final String description;
-  final IconData icon;
-  final bool isUnlocked;
-
-  Achievement(this.name, this.description, this.icon, this.isUnlocked);
 }

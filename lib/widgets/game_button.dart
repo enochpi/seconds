@@ -21,48 +21,45 @@ class _GameButtonState extends State<GameButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scale;
-  bool _isProcessing = false; // ADDED: Prevents double-tapping
+
+  bool _isProcessing = false;
 
   @override
   void initState() {
     super.initState();
+
     _animationController = AnimationController(
-      duration: Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 170),
       vsync: this,
     );
 
     _scale = Tween<double>(
       begin: 1.0,
       end: 0.9,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOut,
+      ),
+    );
   }
 
   void _handleTap() {
-    // ADDED: Prevent double-tapping and check if already processing
     if (!widget.enabled || _isProcessing) return;
 
-    // ADDED: Mark as processing to prevent additional taps
     _isProcessing = true;
 
     HapticFeedback.lightImpact();
+
+    widget.onTap?.call();
+
     _animationController.forward().then((_) {
       _animationController.reverse().then((_) {
-        // ADDED: Reset processing flag after animation completes
-        _isProcessing = false;
+        if (mounted) {
+          _isProcessing = false;
+        }
       });
     });
-
-    // Call the tap callback immediately (don't wait for animation)
-    widget.onTap?.call();
   }
 
   @override
@@ -74,15 +71,21 @@ class _GameButtonState extends State<GameButton>
         style: ElevatedButton.styleFrom(
           backgroundColor: widget.color,
           foregroundColor: Colors.white,
-          shape: CircleBorder(),
-          padding: EdgeInsets.all(40),
+          shape: const CircleBorder(),
+          padding: const EdgeInsets.all(40),
           elevation: 8,
         ),
-        child: Icon(
+        child: const Icon(
           Icons.touch_app,
           size: 60,
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 }
