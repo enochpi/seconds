@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/storage_service.dart';
+
 class GameButton extends StatefulWidget {
   final bool enabled;
   final Color color;
@@ -49,7 +51,9 @@ class _GameButtonState extends State<GameButton>
 
     _isProcessing = true;
 
-    HapticFeedback.lightImpact();
+    if (StorageService.getHapticsEnabled()) {
+      HapticFeedback.lightImpact();
+    }
 
     widget.onTap?.call();
 

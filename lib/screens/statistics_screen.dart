@@ -22,38 +22,41 @@ class StatisticsScreen extends StatelessWidget {
           'Statistics',
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
-        backgroundColor: Colors.blue[700],
-        foregroundColor: Colors.white,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             _buildStatCard(
+              context: context,
               title: "High Score",
               value: "${gameService.highScore}",
               icon: Icons.emoji_events,
               color: Colors.amber,
             ),
             _buildStatCard(
+              context: context,
               title: "Games Played",
               value: "${gameService.gamesPlayed}",
               icon: Icons.sports_esports,
               color: Colors.blue,
             ),
             _buildStatCard(
+              context: context,
               title: "Best Accuracy",
               value: bestAccuracy,
               icon: Icons.center_focus_strong,
               color: Colors.green,
             ),
             _buildStatCard(
+              context: context,
               title: "Current Rank",
               value: gameService.reactionRank,
               icon: Icons.speed,
               color: Colors.deepPurple,
             ),
             _buildStatCard(
+              context: context,
               title: "Percentile",
               value: gameService.percentile,
               icon: Icons.leaderboard,
@@ -66,6 +69,7 @@ class StatisticsScreen extends StatelessWidget {
   }
 
   Widget _buildStatCard({
+    required BuildContext context,
     required String title,
     required String value,
     required IconData icon,
@@ -76,10 +80,10 @@ class StatisticsScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.09),
+        color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: color.withOpacity(0.35),
+          color: color.withOpacity(0.4),
           width: 1.5,
         ),
       ),
@@ -87,7 +91,7 @@ class StatisticsScreen extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 26,
-            backgroundColor: color.withOpacity(0.18),
+            backgroundColor: color.withOpacity(0.22),
             child: Icon(
               icon,
               color: color,
@@ -101,7 +105,7 @@ class StatisticsScreen extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
-                color: Colors.grey.shade700,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
               ),
             ),
           ),

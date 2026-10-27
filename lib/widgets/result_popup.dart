@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import '../services/game_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
+import 'emoji_badge.dart';
 
 class ResultPopup extends StatefulWidget {
   final GameService gameService;
@@ -71,32 +72,6 @@ class _ResultPopupState extends State<ResultPopup> {
     }
   }
 
-  String getModeGoal() {
-    switch (gameService.mode) {
-      case GameMode.classic:
-        return "Goal: tap every second from 1s to 7s.";
-      case GameMode.blind:
-        return "Goal: tap every second without watching the timer.";
-      case GameMode.hardcore:
-        return "Goal: one tap, as close as possible to exactly 7.00s.";
-      case GameMode.daily:
-        return "Goal: hit today’s hidden target as closely as possible.";
-    }
-  }
-
-  String getScoreExplanation() {
-    switch (gameService.mode) {
-      case GameMode.classic:
-        return "Each tap can earn up to 1000 points.";
-      case GameMode.blind:
-        return "Same scoring as Classic, but without the timer.";
-      case GameMode.hardcore:
-        return "Start at 7000. Every millisecond off costs 7 points.";
-      case GameMode.daily:
-        return "Today’s target is ${(GameConstants.dailyTargetTime / 1000).toStringAsFixed(2)}s. Every millisecond off costs 7 points.";
-    }
-  }
-
   String getAccuracyText() {
     final average = gameService.averageErrorMs;
 
@@ -148,7 +123,8 @@ class _ResultPopupState extends State<ResultPopup> {
         if (score >= 6975) return "Unreal. That was almost exactly 7 seconds.";
         if (score >= 6900) return "Insane shot. You were barely off.";
         if (score >= 6750) return "Very close. One cleaner tap could be elite.";
-        if (score >= 6300) return "Good attempt. Try to feel the 7-second mark.";
+        if (score >= 6300)
+          return "Good attempt. Try to feel the 7-second mark.";
         if (score >= 5000) return "You were off, but not hopeless.";
         return "Hardcore is unforgiving. Try again.";
 
@@ -243,7 +219,7 @@ class _ResultPopupState extends State<ResultPopup> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
         horizontal: 14,
-        vertical: 12,
+        vertical: 8,
       ),
       decoration: BoxDecoration(
         color: Colors.amber.withOpacity(0.12),
@@ -257,16 +233,16 @@ class _ResultPopupState extends State<ResultPopup> {
         children: [
           const Text(
             "🎯",
-            style: TextStyle(fontSize: 24),
+            style: TextStyle(fontSize: 20),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               getRivalChallengeText(),
               textAlign: TextAlign.left,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 13,
                 fontWeight: FontWeight.w900,
                 height: 1.25,
               ),
@@ -282,7 +258,7 @@ class _ResultPopupState extends State<ResultPopup> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
         horizontal: 14,
-        vertical: 12,
+        vertical: 8,
       ),
       decoration: BoxDecoration(
         color: Colors.lightBlueAccent.withOpacity(0.10),
@@ -296,16 +272,16 @@ class _ResultPopupState extends State<ResultPopup> {
         children: [
           const Text(
             "🏅",
-            style: TextStyle(fontSize: 24),
+            style: TextStyle(fontSize: 20),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               getPersonalBestText(),
               textAlign: TextAlign.left,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 13,
                 fontWeight: FontWeight.w900,
                 height: 1.25,
               ),
@@ -313,6 +289,42 @@ class _ResultPopupState extends State<ResultPopup> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRankBadge({
+    double size = 132,
+    double? emojiSize,
+    double labelSize = 18,
+  }) {
+    final rankColor = getRankColor();
+    final rank = gameService.reactionRank;
+    final spaceIndex = rank.indexOf(' ');
+    final emoji = spaceIndex == -1 ? rank : rank.substring(0, spaceIndex);
+    final label = spaceIndex == -1 ? '' : rank.substring(spaceIndex + 1);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        EmojiBadge(
+          emoji: emoji,
+          color: rankColor,
+          size: size,
+          emojiSize: emojiSize,
+          borderWidth: size * 0.02,
+        ),
+        SizedBox(height: size * 0.08),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: labelSize,
+            fontWeight: FontWeight.w900,
+            color: rankColor,
+            height: 1.1,
+          ),
+        ),
+      ],
     );
   }
 
@@ -506,27 +518,27 @@ class _ResultPopupState extends State<ResultPopup> {
             "7 SECONDS",
             style: TextStyle(
               color: Colors.grey.shade500,
-              fontSize: 42,
+              fontSize: 32,
               fontWeight: FontWeight.w900,
               letterSpacing: 4,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           Text(
             playerName,
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 54,
+              fontSize: 48,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 18),
           Text(
             "$modeEmoji $modeName",
             style: TextStyle(
               color: Colors.grey.shade400,
-              fontSize: 40,
+              fontSize: 30,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -551,32 +563,23 @@ class _ResultPopupState extends State<ResultPopup> {
               ),
             ),
           const SizedBox(height: 28),
-          Text(
-            gameService.reactionRank,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 62,
-              fontWeight: FontWeight.w900,
-              color: rankColor,
-              height: 1.05,
-            ),
-          ),
+          _buildRankBadge(size: 320, emojiSize: 175, labelSize: 54),
           const SizedBox(height: 22),
           if (!isOneShotMode)
             Text(
               gameService.percentile,
               style: TextStyle(
-                fontSize: 42,
+                fontSize: 32,
                 color: Colors.grey.shade300,
                 fontWeight: FontWeight.w700,
               ),
             ),
-          if (!isOneShotMode) const SizedBox(height: 14),
+          if (!isOneShotMode) const SizedBox(height: 12),
           Text(
             getAccuracyText(),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 36,
+              fontSize: 28,
               color: Colors.grey.shade400,
               fontWeight: FontWeight.w700,
             ),
@@ -600,7 +603,7 @@ class _ResultPopupState extends State<ResultPopup> {
               getPersonalBestText(),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 34,
+                fontSize: 28,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
                 height: 1.2,
@@ -626,14 +629,14 @@ class _ResultPopupState extends State<ResultPopup> {
               getRivalChallengeText(),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 34,
+                fontSize: 28,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
                 height: 1.2,
               ),
             ),
           ),
-          const SizedBox(height: 38),
+          const SizedBox(height: 34),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
@@ -648,17 +651,17 @@ class _ResultPopupState extends State<ResultPopup> {
               "Can you beat this?",
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 44,
+                fontSize: 38,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
               ),
             ),
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 26),
           Text(
             "Play 7 Seconds",
             style: TextStyle(
-              fontSize: 30,
+              fontSize: 24,
               color: Colors.grey.shade500,
               fontWeight: FontWeight.w700,
             ),
@@ -683,9 +686,9 @@ class _ResultPopupState extends State<ResultPopup> {
   Widget build(BuildContext context) {
     final rankColor = getRankColor();
     final modeEmoji = GameConstants.modeEmoji(gameService.mode);
+    final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return Dialog(
-      backgroundColor: const Color(0xFF0D0D0D),
       insetPadding: const EdgeInsets.symmetric(
         horizontal: 20,
         vertical: 20,
@@ -697,235 +700,193 @@ class _ResultPopupState extends State<ResultPopup> {
         clipBehavior: Clip.none,
         children: [
           _buildHiddenShareCard(),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 22,
-              vertical: 24,
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.82,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "$modeEmoji ${getModeTitle()}",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey.shade500,
-                    fontWeight: FontWeight.w800,
-                  ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 12,
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  "${gameService.totalScore}",
-                  style: TextStyle(
-                    fontSize: 62,
-                    fontWeight: FontWeight.w900,
-                    color: rankColor,
-                    letterSpacing: -2,
-                  ),
-                ),
-                if (isOneShotMode)
-                  Text(
-                    "/ 7000",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                const SizedBox(height: 10),
-                Text(
-                  gameService.reactionRank,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: rankColor,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (!isOneShotMode)
-                  Text(
-                    gameService.percentile,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade400,
-                    ),
-                  ),
-                const SizedBox(height: 10),
-                Text(
-                  getAccuracyText(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey.shade300,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        getModeGoal(),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade300,
-                          fontWeight: FontWeight.w700,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        getScoreExplanation(),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  getReplayMessage(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey.shade200,
-                    fontWeight: FontWeight.w900,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildRivalChallengeBox(),
-                const SizedBox(height: 10),
-                _buildPersonalBestBox(),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _isSharing ? null : _shareResultCard,
-                    icon: _isSharing
-                        ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                        : const Icon(Icons.ios_share),
-                    label: Text(
-                      _isSharing ? "Preparing Card..." : "Share Result Card",
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white12,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 13,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: TextButton.icon(
-                        onPressed: _copyCaption,
-                        icon: const Icon(Icons.copy_rounded, size: 18),
-                        label: const Text("Copy Caption"),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.grey.shade400,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                    Text(
+                      "$modeEmoji ${getModeTitle()}",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: onSurface.withOpacity(0.55),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      "${gameService.totalScore}",
+                      style: TextStyle(
+                        fontSize: 46,
+                        fontWeight: FontWeight.w900,
+                        color: rankColor,
+                        letterSpacing: -2,
+                      ),
+                    ),
+                    if (isOneShotMode)
+                      Text(
+                        "/ 7000",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: onSurface.withOpacity(0.4),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    const SizedBox(height: 6),
+                    _buildRankBadge(size: 285, emojiSize: 160, labelSize: 32),
+                    const SizedBox(height: 6),
+                    Text(
+                      isOneShotMode
+                          ? getAccuracyText()
+                          : "${gameService.percentile} • ${getAccuracyText()}",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: onSurface.withOpacity(0.7),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      getReplayMessage(),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: onSurface.withOpacity(0.85),
+                        fontWeight: FontWeight.w900,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildRivalChallengeBox(),
+                    const SizedBox(height: 6),
+                    _buildPersonalBestBox(),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isSharing ? null : _shareResultCard,
+                        icon: _isSharing
+                            ? SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: onSurface,
+                                ),
+                              )
+                            : const Icon(Icons.ios_share),
+                        label: Text(
+                          _isSharing
+                              ? "Preparing Card..."
+                              : "Share Result Card",
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: onSurface.withOpacity(0.08),
+                          foregroundColor: onSurface,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 9,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: TextButton.icon(
-                        onPressed: _isSaving ? null : _saveResultImage,
-                        icon: _isSaving
-                            ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.grey.shade400,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton.icon(
+                            onPressed: _copyCaption,
+                            icon: const Icon(Icons.copy_rounded, size: 18),
+                            label: const Text("Copy Caption"),
+                            style: TextButton.styleFrom(
+                              foregroundColor: onSurface.withOpacity(0.6),
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                            ),
                           ),
-                        )
-                            : const Icon(Icons.download_rounded, size: 18),
-                        label: Text(_isSaving ? "Saving..." : "Save Image"),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.grey.shade400,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                        Expanded(
+                          child: TextButton.icon(
+                            onPressed: _isSaving ? null : _saveResultImage,
+                            icon: _isSaving
+                                ? SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: onSurface.withOpacity(0.6),
+                                    ),
+                                  )
+                                : const Icon(Icons.download_rounded, size: 18),
+                            label: Text(_isSaving ? "Saving..." : "Save Image"),
+                            style: TextButton.styleFrom(
+                              foregroundColor: onSurface.withOpacity(0.6),
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          gameService.resetToReady();
+                          gameService.startGame();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: rankColor,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 9,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                        child: Text(
+                          isOneShotMode ? "Try Again" : "Run It Back",
+                          style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        gameService.resetToReady();
+                      },
+                      child: Text(
+                        "Back to menu",
+                        style: TextStyle(
+                          color: onSurface.withOpacity(0.5),
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      gameService.resetToReady();
-                      gameService.startGame();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: rankColor,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 13,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: Text(
-                      isOneShotMode ? "Try Again" : "Run It Back",
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    gameService.resetToReady();
-                  },
-                  child: Text(
-                    "Back to menu",
-                    style: TextStyle(
-                      color: Colors.grey.shade500,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/leaderboard_entry.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
+import '../widgets/emoji_badge.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({Key? key}) : super(key: key);
@@ -51,20 +52,20 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ? ''
           : StorageService.getPlayerName(),
     );
+    final onSurface = Theme.of(context).colorScheme.onSurface;
 
     final savedName = await showDialog<String>(
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF111111),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text(
+          title: Text(
             "Choose your name",
             style: TextStyle(
-              color: Colors.white,
+              color: onSurface,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -72,8 +73,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             controller: controller,
             maxLength: 16,
             autofocus: false,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: onSurface,
               fontWeight: FontWeight.w800,
             ),
             decoration: InputDecoration(
@@ -122,8 +123,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 Navigator.of(dialogContext).pop(controller.text);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
               ),
               child: const Text(
                 "Save",
@@ -156,16 +157,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final allEntries = StorageService.getLeaderboardEntries();
     final entries = _filteredEntries(allEntries);
     final playerName = StorageService.getPlayerName();
+    final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
       appBar: AppBar(
         title: const Text(
           "Leaderboard",
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             tooltip: "Change name",
@@ -197,22 +196,22 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 vertical: 13,
               ),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.07),
+                color: onSurface.withOpacity(0.07),
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.person,
-                    color: Colors.white,
+                    color: onSurface,
                     size: 20,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       "Playing as $playerName",
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: onSurface,
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
                       ),
@@ -223,7 +222,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     child: Text(
                       "Edit",
                       style: TextStyle(
-                        color: Colors.grey.shade400,
+                        color: onSurface.withOpacity(0.6),
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -270,8 +269,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               children: [
                 Text(
                   _title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: onSurface,
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                   ),
@@ -280,7 +279,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 Text(
                   "${entries.length} scores",
                   style: TextStyle(
-                    color: Colors.grey.shade500,
+                    color: onSurface.withOpacity(0.5),
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                   ),
@@ -297,10 +296,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 final entry = entries[index];
                 final placement = index + 1;
 
-                Color placementColor = Colors.white;
+                Color placementColor = onSurface;
 
                 if (placement == 1) placementColor = Colors.amber;
-                if (placement == 2) placementColor = Colors.grey.shade300;
+                if (placement == 2) placementColor = Colors.grey.shade400;
                 if (placement == 3) {
                   placementColor = Colors.brown.shade300;
                 }
@@ -309,7 +308,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.06),
+                    color: onSurface.withOpacity(0.06),
                     borderRadius: BorderRadius.circular(20),
                     border: placement <= 3
                         ? Border.all(
@@ -322,8 +321,21 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     children: [
                       SizedBox(
                         width: 46,
-                        child: Text(
+                        child: placement <= 3
+                            ? EmojiBadge(
+                          emoji: placement == 1
+                              ? "🥇"
+                              : placement == 2
+                              ? "🥈"
+                              : "🥉",
+                          color: placementColor,
+                          size: 44,
+                          emojiSize: 24,
+                          borderWidth: 1.5,
+                        )
+                            : Text(
                           "#$placement",
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             color: placementColor,
                             fontSize: 22,
@@ -342,8 +354,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                   child: Text(
                                     entry.playerName,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: onSurface,
                                       fontSize: 18,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -357,13 +369,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.12),
+                                      color: onSurface.withOpacity(0.12),
                                       borderRadius: BorderRadius.circular(99),
                                     ),
                                     child: Text(
                                       "CPU",
                                       style: TextStyle(
-                                        color: Colors.grey.shade400,
+                                        color: onSurface.withOpacity(0.6),
                                         fontSize: 10,
                                         fontWeight: FontWeight.w900,
                                       ),
@@ -376,7 +388,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             Text(
                               "${GameConstants.modeEmoji(entry.mode)} ${GameConstants.modeName(entry.mode)} • ${entry.rank}",
                               style: TextStyle(
-                                color: Colors.grey.shade400,
+                                color: onSurface.withOpacity(0.6),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -385,7 +397,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             Text(
                               entry.accuracyText,
                               style: TextStyle(
-                                color: Colors.grey.shade500,
+                                color: onSurface.withOpacity(0.5),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -396,8 +408,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       const SizedBox(width: 10),
                       Text(
                         "${entry.score}",
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: onSurface,
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
                         ),
@@ -419,10 +431,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     required bool selected,
     required VoidCallback onTap,
   }) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final surface = Theme.of(context).colorScheme.surface;
+
     return Container(
       margin: const EdgeInsets.only(right: 8),
       child: Material(
-        color: selected ? Colors.white : Colors.white.withOpacity(0.08),
+        color: selected ? onSurface : onSurface.withOpacity(0.08),
         borderRadius: BorderRadius.circular(999),
         child: InkWell(
           borderRadius: BorderRadius.circular(999),
@@ -436,13 +451,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               children: [
                 Text(
                   emoji,
-                  style: const TextStyle(fontSize: 16),
+                  style: const TextStyle(fontSize: 19),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   label,
                   style: TextStyle(
-                    color: selected ? Colors.black : Colors.white,
+                    color: selected ? surface : onSurface,
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                   ),

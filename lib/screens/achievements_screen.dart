@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/achievement.dart';
 import '../services/game_service.dart';
+import '../widgets/emoji_badge.dart';
 
 class AchievementsScreen extends StatelessWidget {
   final GameService gameService;
@@ -23,8 +24,6 @@ class AchievementsScreen extends StatelessWidget {
           'Achievements',
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
-        backgroundColor: Colors.blue[700],
-        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
@@ -79,32 +78,58 @@ class AchievementsScreen extends StatelessWidget {
               itemCount: achievements.length,
               itemBuilder: (context, index) {
                 final Achievement achievement = achievements[index];
+                final onSurface = Theme.of(context).colorScheme.onSurface;
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: achievement.unlocked
-                        ? Colors.green.shade50
-                        : Colors.grey.shade100,
+                        ? Colors.green.withOpacity(0.12)
+                        : onSurface.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
                       color: achievement.unlocked
-                          ? Colors.green.shade300
-                          : Colors.grey.shade300,
+                          ? Colors.green.withOpacity(0.4)
+                          : onSurface.withOpacity(0.1),
                       width: 1.5,
                     ),
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        achievement.unlocked
-                            ? Icons.emoji_events
-                            : Icons.lock,
-                        color: achievement.unlocked
-                            ? Colors.green.shade700
-                            : Colors.grey.shade500,
-                        size: 34,
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          EmojiBadge(
+                            emoji: achievement.emoji,
+                            color: achievement.unlocked
+                                ? Colors.greenAccent
+                                : onSurface.withOpacity(0.3),
+                            size: 56,
+                            emojiSize: 28,
+                            opacity: achievement.unlocked ? 1 : 0.4,
+                            glow: achievement.unlocked,
+                          ),
+                          if (!achievement.unlocked)
+                            Positioned(
+                              right: -2,
+                              bottom: -2,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surface,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.lock,
+                                  size: 14,
+                                  color: onSurface.withOpacity(0.5),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -112,33 +137,33 @@ class AchievementsScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              achievement.title,
+                              achievement.label,
                               style: TextStyle(
-                                fontSize: 17,
+                                fontSize: 16,
                                 fontWeight: FontWeight.w900,
                                 color: achievement.unlocked
-                                    ? Colors.black
-                                    : Colors.grey.shade600,
+                                    ? onSurface
+                                    : onSurface.withOpacity(0.5),
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 3),
                             Text(
                               achievement.description,
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: achievement.unlocked
-                                    ? Colors.grey.shade700
-                                    : Colors.grey.shade500,
+                                    ? onSurface.withOpacity(0.7)
+                                    : onSurface.withOpacity(0.4),
                               ),
                             ),
                           ],
                         ),
                       ),
                       if (achievement.unlocked)
-                        Icon(
+                        const Icon(
                           Icons.check_circle,
-                          color: Colors.green.shade700,
+                          color: Colors.greenAccent,
                         ),
                     ],
                   ),

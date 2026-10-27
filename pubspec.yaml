@@ -1,7 +1,7 @@
 name: seconds
 description: "Test your reaction time! Tap at exactly 1, 2, 3, 4, 5, 6, and 7 seconds."
 
-version: 1.2.0+10
+version: 1.2.0+13
 
 environment:
   sdk: '>=2.17.0 <4.0.0'
@@ -16,6 +16,7 @@ dependencies:
   share_plus: ^10.0.2
   path_provider: ^2.1.5
   gal: ^2.3.1
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:
@@ -25,6 +26,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/sounds/
 
 flutter_icons:
   android: true

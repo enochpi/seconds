@@ -11,6 +11,10 @@ class StorageService {
   static const String _bestAccuracyKey = 'best_accuracy';
   static const String _hasSeenTutorialKey = 'has_seen_tutorial';
 
+  static const String _soundEnabledKey = 'sound_enabled';
+  static const String _hapticsEnabledKey = 'haptics_enabled';
+  static const String _darkModeEnabledKey = 'dark_mode_enabled';
+
   static const String _playerNameKey = 'player_name';
 
   static const String _modeBestPrefix = 'mode_best_';
@@ -157,6 +161,56 @@ class StorageService {
   static Future<bool> setTutorialSeen() async {
     try {
       return await _prefs?.setBool(_hasSeenTutorialKey, true) ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // SETTINGS
+
+  static bool getSoundEnabled() {
+    try {
+      return _prefs?.getBool(_soundEnabledKey) ?? true;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  static Future<bool> setSoundEnabled(bool enabled) async {
+    try {
+      return await _prefs?.setBool(_soundEnabledKey, enabled) ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static bool getHapticsEnabled() {
+    try {
+      return _prefs?.getBool(_hapticsEnabledKey) ?? true;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  static Future<bool> setHapticsEnabled(bool enabled) async {
+    try {
+      return await _prefs?.setBool(_hapticsEnabledKey, enabled) ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static bool getDarkModeEnabled() {
+    try {
+      return _prefs?.getBool(_darkModeEnabledKey) ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> setDarkModeEnabled(bool enabled) async {
+    try {
+      return await _prefs?.setBool(_darkModeEnabledKey, enabled) ?? false;
     } catch (e) {
       return false;
     }
