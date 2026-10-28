@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../services/cosmetics_service.dart';
 import '../services/game_service.dart';
+import '../services/profile_service.dart';
+import '../widgets/profile_card_widget.dart';
+import 'shop_screen.dart';
 
 class StatisticsScreen extends StatelessWidget {
   final GameService gameService;
@@ -9,6 +13,58 @@ class StatisticsScreen extends StatelessWidget {
     Key? key,
     required this.gameService,
   }) : super(key: key);
+
+  /// Upload a photo, go buy avatars and frames, or remove the photo.
+  Widget _buildPictureButtons(BuildContext context) {
+    final hasPhoto = ProfileService.photoPath != null;
+
+    Widget button(String label, VoidCallback onPressed) {
+      return Expanded(
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        button(hasPhoto ? "📷 Change photo" : "📷 Upload photo", () async {
+          try {
+            await ProfileService.pickPhoto();
+          } catch (e) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Couldn't open your photos.")),
+            );
+          }
+        }),
+        const SizedBox(width: 8),
+        if (hasPhoto) ...[
+          button("Remove photo", ProfileService.removePhoto),
+          const SizedBox(width: 8),
+        ],
+        button("✨ Get frames", () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ShopScreen()),
+          );
+        }),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,14 +75,28 @@ class StatisticsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Statistics',
+          'Profile',
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            // Rebuilds when the photo or frame changes.
+            ValueListenableBuilder<int>(
+              valueListenable: CosmeticsService.changes,
+              builder: (context, _, __) {
+                return Column(
+                  children: [
+                    ProfileCard(profile: ProfileService.current),
+                    const SizedBox(height: 10),
+                    _buildPictureButtons(context),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
+            ),
             _buildStatCard(
               context: context,
               title: "High Score",

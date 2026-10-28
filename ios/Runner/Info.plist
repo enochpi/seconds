@@ -47,5 +47,7 @@
 	<true/>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save your result card as an image so you can share it to Instagram Stories, LinkedIn, and other apps.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick a photo to use as your profile picture.</string>
 </dict>
 </plist>

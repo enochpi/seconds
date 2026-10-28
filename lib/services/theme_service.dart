@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'cosmetics_service.dart';
 import 'storage_service.dart';
 
 class ThemeService {
@@ -10,9 +11,8 @@ class ThemeService {
   final ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.light);
 
   void init() {
-    themeMode.value = StorageService.getDarkModeEnabled()
-        ? ThemeMode.dark
-        : ThemeMode.light;
+    themeMode.value =
+        StorageService.getDarkModeEnabled() ? ThemeMode.dark : ThemeMode.light;
   }
 
   Future<void> setDarkModeEnabled(bool enabled) async {
@@ -22,7 +22,28 @@ class ThemeService {
 
   bool get isDarkMode => themeMode.value == ThemeMode.dark;
 
-  static ThemeData get lightTheme {
+  /// Applies the font the player equipped in the shop.
+  static ThemeData _withEquippedFont(ThemeData theme) {
+    final font = CosmeticsService.font;
+    if (font.family == null) return theme;
+
+    return theme.copyWith(
+      textTheme: theme.textTheme.apply(
+        fontFamily: font.family,
+        fontFamilyFallback: font.fallback,
+      ),
+      primaryTextTheme: theme.primaryTextTheme.apply(
+        fontFamily: font.family,
+        fontFamilyFallback: font.fallback,
+      ),
+    );
+  }
+
+  static ThemeData get lightTheme => _withEquippedFont(_baseLightTheme);
+
+  static ThemeData get darkTheme => _withEquippedFont(_baseDarkTheme);
+
+  static ThemeData get _baseLightTheme {
     return ThemeData(
       brightness: Brightness.light,
       scaffoldBackgroundColor: const Color(0xFFF5F5F7),
@@ -42,7 +63,7 @@ class ThemeService {
     );
   }
 
-  static ThemeData get darkTheme {
+  static ThemeData get _baseDarkTheme {
     return ThemeData(
       brightness: Brightness.dark,
       scaffoldBackgroundColor: const Color(0xFF0D0D0D),

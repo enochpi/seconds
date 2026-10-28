@@ -1,17 +1,15 @@
-import 'dart:io';
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:gal/gal.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
+import '../models/profile_model.dart';
 import '../services/game_service.dart';
+import '../services/mystery_box_service.dart';
+import '../services/profile_service.dart';
+import '../services/share_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
 import 'emoji_badge.dart';
+import 'share_cards.dart';
 
 class ResultPopup extends StatefulWidget {
   final GameService gameService;
@@ -27,15 +25,20 @@ class ResultPopup extends StatefulWidget {
 
 class _ResultPopupState extends State<ResultPopup> {
   final GlobalKey _shareCardKey = GlobalKey();
+  final GlobalKey _challengeCardKey = GlobalKey();
   bool _isSharing = false;
+
+  /// Picked once so the caption matches the card.
+  late final String _challengeLine =
+      (ChallengeShareCard.lines(gameService.closestTapMs)..shuffle()).first;
   bool _isSaving = false;
 
   GameService get gameService => widget.gameService;
 
-  bool get isOneShotMode {
-    return gameService.mode == GameMode.hardcore ||
-        gameService.mode == GameMode.daily;
-  }
+  bool get isOneShotMode => gameService.mode == GameMode.hardcore;
+
+  /// Endless scores are rounds cleared; every other mode scores points.
+  String get _scoreUnit => gameService.isEndlessMode ? "rounds" : "points";
 
   Color getRankColor() {
     final rank = gameService.reactionRank;
@@ -67,8 +70,8 @@ class _ResultPopupState extends State<ResultPopup> {
         return "Blind Rhythm Run";
       case GameMode.hardcore:
         return "Hardcore 7-Second Shot";
-      case GameMode.daily:
-        return "Daily Challenge";
+      case GameMode.endless:
+        return "Endless Run";
     }
   }
 
@@ -99,44 +102,6 @@ class _ResultPopupState extends State<ResultPopup> {
     return "Average error: ±${average.toStringAsFixed(0)}ms";
   }
 
-  String getReplayMessage() {
-    final score = gameService.totalScore;
-
-    switch (gameService.mode) {
-      case GameMode.classic:
-        if (score < 5000) return "Try to reach Turtle rank.";
-        if (score < 6000) return "You are close to Cobra Reflexes.";
-        if (score < 6750) return "Good rhythm. Push for Alley Cat.";
-        if (score < 6850) return "Fast. Now chase Cheetah speed.";
-        if (score < 6950) return "Elite territory. Chase Lightning.";
-        return "Almost impossible. Can you hit F1?";
-
-      case GameMode.blind:
-        if (score < 5000) return "Blind Mode is brutal. Find the rhythm.";
-        if (score < 6000) return "Not bad without the timer.";
-        if (score < 6750) return "Your internal clock is getting sharp.";
-        if (score < 6850) return "That is seriously good blind rhythm.";
-        if (score < 6950) return "Elite blind timing. Run it back.";
-        return "Insane. That is almost perfect rhythm.";
-
-      case GameMode.hardcore:
-        if (score >= 6975) return "Unreal. That was almost exactly 7 seconds.";
-        if (score >= 6900) return "Insane shot. You were barely off.";
-        if (score >= 6750) return "Very close. One cleaner tap could be elite.";
-        if (score >= 6300)
-          return "Good attempt. Try to feel the 7-second mark.";
-        if (score >= 5000) return "You were off, but not hopeless.";
-        return "Hardcore is unforgiving. Try again.";
-
-      case GameMode.daily:
-        if (score >= 6975) return "Daily destroyed. That is almost perfect.";
-        if (score >= 6900) return "Elite daily score. Share this one.";
-        if (score >= 6750) return "Very strong daily attempt.";
-        if (score >= 6300) return "Good try. Come back tomorrow.";
-        return "Daily Challenge got you today.";
-    }
-  }
-
   String getRivalChallengeText() {
     final currentScore = gameService.totalScore;
     final currentMode = gameService.mode;
@@ -156,14 +121,14 @@ class _ResultPopupState extends State<ResultPopup> {
       final difference = rival.score - currentScore;
 
       if (!rival.isBot && rival.playerName == playerName) {
-        return "Your PB is $difference points ahead.\nBeat your best: ${rival.score}";
+        return "Your PB is $difference $_scoreUnit ahead.\nBeat your best: ${rival.score}";
       }
 
       if (rival.isBot) {
-        return "${rival.playerName} is $difference points ahead.\nBeat their PB: ${rival.score}";
+        return "${rival.playerName} is $difference $_scoreUnit ahead.\nBeat their PB: ${rival.score}";
       }
 
-      return "${rival.playerName} is $difference points ahead.\nBeat their score: ${rival.score}";
+      return "${rival.playerName} is $difference $_scoreUnit ahead.\nBeat their score: ${rival.score}";
     }
 
     final scoresBelow = sameModeEntries
@@ -176,10 +141,10 @@ class _ResultPopupState extends State<ResultPopup> {
       final difference = currentScore - beatenPlayer.score;
 
       if (!beatenPlayer.isBot && beatenPlayer.playerName == playerName) {
-        return "New personal best by $difference points 🔥";
+        return "New personal best by $difference $_scoreUnit 🔥";
       }
 
-      return "You beat ${beatenPlayer.playerName} by $difference points 🔥";
+      return "You beat ${beatenPlayer.playerName} by $difference $_scoreUnit 🔥";
     }
 
     return "First score in this mode.\nSet the standard.";
@@ -196,7 +161,7 @@ class _ResultPopupState extends State<ResultPopup> {
       final improvement =
           gameService.totalScore - gameService.previousModePersonalBest;
 
-      return "New $modeName PB by $improvement points 🔥";
+      return "New $modeName PB by $improvement $_scoreUnit 🔥";
     }
 
     final best = gameService.currentModePersonalBest;
@@ -211,81 +176,267 @@ class _ResultPopupState extends State<ResultPopup> {
       return "$modeName PB matched: $best";
     }
 
-    return "$away points away from your $modeName PB\nBest: $best";
+    return "$away $_scoreUnit away from your $modeName PB\nBest: $best";
   }
 
-  Widget _buildRivalChallengeBox() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 8,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.amber.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.amber.withOpacity(0.35),
-          width: 1.2,
-        ),
-      ),
-      child: Row(
-        children: [
-          const Text(
-            "🎯",
-            style: TextStyle(fontSize: 20),
+  String get _rankEmoji {
+    final rank = gameService.reactionRank;
+    final spaceIndex = rank.indexOf(' ');
+    return spaceIndex == -1 ? rank : rank.substring(0, spaceIndex);
+  }
+
+  String get _rankName {
+    final rank = gameService.reactionRank;
+    final spaceIndex = rank.indexOf(' ');
+    return spaceIndex == -1 ? rank : rank.substring(spaceIndex + 1);
+  }
+
+  String getAccuracyValue() {
+    final average = gameService.averageErrorMs;
+
+    if (!isOneShotMode && average != null) {
+      return "±${average.toStringAsFixed(0)}ms";
+    }
+
+    return getAccuracyText();
+  }
+
+  String? getNextRankText() {
+    final nextRank = gameService.nextRank;
+    final msAway = gameService.msToNextRank;
+
+    if (nextRank == null) return "👑 Top rank! Can you do it again?";
+    if (msAway == null) return null;
+    if (msAway <= 15) return "🔥 So close! Just ${msAway}ms from $nextRank";
+
+    return "Next: $nextRank • ${msAway}ms tighter";
+  }
+
+  Widget _buildRankHeader(Color rankColor, Color onSurface) {
+    final stars = gameService.rankStars;
+    final nextRankText = getNextRankText();
+
+    return Column(
+      children: [
+        Text(
+          "YOUR RANK",
+          style: TextStyle(
+            fontSize: 18,
+            letterSpacing: 3,
+            fontWeight: FontWeight.w900,
+            color: onSurface.withOpacity(0.55),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              getRivalChallengeText(),
-              textAlign: TextAlign.left,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                height: 1.25,
-              ),
+        ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            _rankName,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 42,
+              fontWeight: FontWeight.w900,
+              color: rankColor,
+              height: 1.1,
             ),
           ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < 5; i++)
+              _buildStar((stars - i).clamp(0.0, 1.0), 38),
+          ],
+        ),
+        if (nextRankText != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            nextRankText,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              color: Colors.deepOrangeAccent,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// A star filled from the left by [fill] (0–1), so 0.5 is a half star.
+  Widget _buildStar(double fill, double size) {
+    return Stack(
+      children: [
+        Icon(Icons.star_outline_rounded, color: Colors.amber, size: size),
+        ClipRect(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            widthFactor: fill,
+            child: Icon(Icons.star_rounded, color: Colors.amber, size: size),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsBox(Color onSurface) {
+    final isNewBest = gameService.isNewModePersonalBest;
+
+    Widget stat(
+      String label,
+      String value,
+      Color valueColor, {
+      Color? labelColor,
+    }) {
+      return Expanded(
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                letterSpacing: 1.5,
+                fontWeight: FontWeight.w900,
+                color: labelColor ?? onSurface.withOpacity(0.5),
+              ),
+            ),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: valueColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: onSurface.withOpacity(0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildStatsRow(stat, isNewBest, onSurface),
+          ..._buildProgressNotes(onSurface),
         ],
       ),
     );
   }
 
-  Widget _buildPersonalBestBox() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 8,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.lightBlueAccent.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.lightBlueAccent.withOpacity(0.30),
-          width: 1.2,
+  /// Win streak and finished-quest lines shown under the stats.
+  List<Widget> _buildProgressNotes(Color onSurface) {
+    final notes = <Widget>[];
+
+    Widget note(String text, Color color) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
         ),
-      ),
+      );
+    }
+
+    final streak = gameService.winStreak;
+    final before = gameService.streakBeforeRun;
+
+    switch (gameService.lastStreakOutcome) {
+      case WinStreakOutcome.extended:
+        final multiplier = gameService.lastStreakMultiplier;
+        final nextBoost = streak < 3
+            ? " • ${3 - streak} more for 1.2×"
+            : streak < 5
+                ? " • ${5 - streak} more for 1.5×"
+                : "";
+
+        notes.add(note(
+          multiplier > 1
+              ? "🔥 Win streak $streak • ${multiplier}× ${GameConstants.currencyName}$nextBoost"
+              : "🔥 Win streak $streak$nextBoost",
+          Colors.deepOrangeAccent,
+        ));
+        break;
+      case WinStreakOutcome.shielded:
+        notes.add(note(
+          "🛡️ Shield saved your 🔥$before win streak",
+          Colors.lightBlueAccent,
+        ));
+        break;
+      case WinStreakOutcome.lost:
+        notes.add(note(
+          "🔥$before win streak lost",
+          onSurface.withOpacity(0.6),
+        ));
+        break;
+      case WinStreakOutcome.none:
+        break;
+    }
+
+    final quests = gameService.questsFinishedThisRun;
+    if (quests.isNotEmpty) {
+      final reward = quests.fold<int>(0, (sum, quest) => sum + quest.reward);
+
+      notes.add(note(
+        "📋 Quest complete! Collect ${GameConstants.currencyEmoji} $reward",
+        Colors.lightGreenAccent,
+      ));
+    }
+
+    return notes;
+  }
+
+  Widget _buildStatsRow(
+    Widget Function(String, String, Color, {Color? labelColor}) stat,
+    bool isNewBest,
+    Color onSurface,
+  ) {
+    return IntrinsicHeight(
       child: Row(
         children: [
-          const Text(
-            "🏅",
-            style: TextStyle(fontSize: 20),
+          stat(
+            isNewBest ? "🏆 NEW BEST" : _scoreUnit.toUpperCase(),
+            "${gameService.totalScore}",
+            Colors.amber,
+            labelColor: isNewBest ? Colors.amber : null,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              getPersonalBestText(),
-              textAlign: TextAlign.left,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                height: 1.25,
-              ),
-            ),
+          VerticalDivider(
+            color: onSurface.withOpacity(0.2),
+            thickness: 1.5,
+            width: 20,
+          ),
+          stat("ACCURACY", getAccuracyValue(), onSurface),
+          VerticalDivider(
+            color: onSurface.withOpacity(0.2),
+            thickness: 1.5,
+            width: 20,
+          ),
+          stat(
+            "EARNED",
+            "+${gameService.lastRunTicks} ${GameConstants.currencyEmoji}",
+            Colors.lightGreenAccent,
           ),
         ],
       ),
@@ -329,6 +480,10 @@ class _ResultPopupState extends State<ResultPopup> {
   }
 
   String getShareText() {
+    return "${_shareTextBody()}\n\n#7Seconds #ReactionTime #TimingChallenge";
+  }
+
+  String _shareTextBody() {
     final modeEmoji = GameConstants.modeEmoji(gameService.mode);
     final modeName = GameConstants.modeName(gameService.mode);
     final playerName = StorageService.getPlayerName();
@@ -357,44 +512,32 @@ class _ResultPopupState extends State<ResultPopup> {
             "${getRivalChallengeText()}\n\n"
             "Can you get closer to 7.000s?\n$appStoreLink";
 
-      case GameMode.daily:
-        return "$playerName scored ${gameService.totalScore}/7000 in today's 7 Seconds Daily Challenge 📅\n"
-            "Target: ${(GameConstants.dailyTargetTime / 1000).toStringAsFixed(2)}s\n"
+      case GameMode.endless:
+        return "$playerName survived ${gameService.totalScore} rounds in 7 Seconds Endless ♾️\n"
+            "Every round: hit 7.00s, and the window keeps shrinking\n"
             "${getAccuracyText()}\n"
             "${getPersonalBestText()}\n\n"
             "${getRivalChallengeText()}\n\n"
-            "Can you beat today's score?\n$appStoreLink";
+            "Can you last longer?\n$appStoreLink";
     }
   }
 
-  Future<Uint8List> _captureCardBytes() async {
-    await WidgetsBinding.instance.endOfFrame;
-    await Future.delayed(const Duration(milliseconds: 180));
+  Future<void> _giveShareReward() async {
+    final rewarded = await MysteryBoxService.rewardShare();
+    if (!rewarded || !mounted) return;
 
-    final cardContext = _shareCardKey.currentContext;
+    setState(() {});
 
-    if (cardContext == null) {
-      throw Exception("Share card is not ready yet");
-    }
-
-    final boundary = cardContext.findRenderObject() as RenderRepaintBoundary;
-
-    if (boundary.debugNeedsPaint) {
-      await WidgetsBinding.instance.endOfFrame;
-      await Future.delayed(const Duration(milliseconds: 180));
-    }
-
-    final image = await boundary.toImage(pixelRatio: 3.0);
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-
-    if (byteData == null) {
-      throw Exception("Could not convert image");
-    }
-
-    return byteData.buffer.asUint8List();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          "🎁 Thanks for sharing! A free Mystery Box is waiting in the Shop.",
+        ),
+      ),
+    );
   }
 
-  Future<void> _shareResultCard() async {
+  Future<void> _shareCard(GlobalKey key, String text) async {
     if (_isSharing) return;
 
     setState(() {
@@ -402,31 +545,10 @@ class _ResultPopupState extends State<ResultPopup> {
     });
 
     try {
-      final pngBytes = await _captureCardBytes();
-
-      final tempDir = await getTemporaryDirectory();
-      final file = File(
-        '${tempDir.path}/seven_seconds_result_${DateTime.now().millisecondsSinceEpoch}.png',
-      );
-
-      await file.writeAsBytes(pngBytes);
-
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: getShareText(),
-        subject: "Can you beat me in 7 Seconds?",
-      );
+      final shared = await ShareService.shareCard(key, text: text);
+      if (shared) await _giveShareReward();
     } catch (e) {
-      // Image rendering failed for some reason (e.g. low memory) — still
-      // let people share the score as plain text instead of failing silently.
-      try {
-        await Share.share(
-          getShareText(),
-          subject: "Can you beat me in 7 Seconds?",
-        );
-      } catch (_) {
-        if (!mounted) return;
-
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Couldn't share result card. Try again."),
@@ -440,6 +562,16 @@ class _ResultPopupState extends State<ResultPopup> {
         });
       }
     }
+  }
+
+  Future<void> _shareResultCard() => _shareCard(_shareCardKey, getShareText());
+
+  Future<void> _shareChallengeCard() {
+    return _shareCard(
+      _challengeCardKey,
+      "🎯 $_challengeLine\n\nThink you can hit exactly 7.00 seconds?\n"
+      "${ShareService.storeLink}\n\n${ShareService.hashtags}",
+    );
   }
 
   Future<void> _copyCaption() async {
@@ -464,11 +596,7 @@ class _ResultPopupState extends State<ResultPopup> {
     });
 
     try {
-      final pngBytes = await _captureCardBytes();
-      await Gal.putImageBytes(
-        pngBytes,
-        name: 'seven_seconds_result_${DateTime.now().millisecondsSinceEpoch}',
-      );
+      await ShareService.saveCard(_shareCardKey);
 
       if (!mounted) return;
 
@@ -494,190 +622,158 @@ class _ResultPopupState extends State<ResultPopup> {
     }
   }
 
-  Widget _buildShareCardContent() {
+  /// The "flex" card: the player's banner, framed avatar, title and a
+  /// glowing score.
+  Widget _buildFlexCard(PlayerProfile profile) {
     final rankColor = getRankColor();
     final modeEmoji = GameConstants.modeEmoji(gameService.mode);
     final modeName = GameConstants.modeName(gameService.mode);
-    final playerName = StorageService.getPlayerName();
+    final perfectTaps =
+        gameService.tapResults.where((result) => result.isPerfect).length;
 
-    return Container(
-      width: 1080,
-      padding: const EdgeInsets.all(64),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D0D0D),
-        borderRadius: BorderRadius.circular(40),
-        border: Border.all(
-          color: rankColor.withOpacity(0.5),
-          width: 3,
+    Widget pill(String text, Color color) {
+      return Container(
+        margin: const EdgeInsets.only(top: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: color, width: 3),
         ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 38,
+            fontWeight: FontWeight.w900,
+            color: color,
+          ),
+        ),
+      );
+    }
+
+    return StoryCard(
+      profile: profile,
+      accent: rankColor,
+      children: [
+        const StoryWordmark(),
+        const SizedBox(height: 44),
+        StoryProfileHeader(profile: profile),
+        const SizedBox(height: 30),
+        Text(
+          "$modeEmoji $modeName",
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.75),
+            fontSize: 36,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          "${gameService.totalScore}",
+          style: TextStyle(
+            fontSize: 220,
+            fontWeight: FontWeight.w900,
+            color: rankColor,
+            letterSpacing: -4,
+            height: 1.05,
+            shadows: [
+              Shadow(color: rankColor.withOpacity(0.9), blurRadius: 50),
+              Shadow(color: rankColor.withOpacity(0.5), blurRadius: 120),
+            ],
+          ),
+        ),
+        if (isOneShotMode || gameService.isEndlessMode)
           Text(
-            "7 SECONDS",
+            isOneShotMode ? "/ 7000" : "ROUNDS",
             style: TextStyle(
-              color: Colors.grey.shade500,
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 4,
+              fontSize: 44,
+              color: Colors.white.withOpacity(0.6),
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 18),
-          Text(
-            playerName,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 48,
-              fontWeight: FontWeight.w900,
-            ),
+        if (gameService.isNewModePersonalBest)
+          pill("🏆 NEW PERSONAL BEST", Colors.amber),
+        if (perfectTaps > 0)
+          pill(
+            "🎯 PERFECT 7.00s${perfectTaps > 1 ? " ×$perfectTaps" : ""}",
+            Colors.cyanAccent,
           ),
-          const SizedBox(height: 18),
+        const SizedBox(height: 36),
+        _buildRankBadge(size: 240, emojiSize: 130, labelSize: 48),
+        const SizedBox(height: 18),
+        if (!isOneShotMode)
           Text(
-            "$modeEmoji $modeName",
+            gameService.percentile,
             style: TextStyle(
-              color: Colors.grey.shade400,
-              fontSize: 30,
-              fontWeight: FontWeight.w700,
+              fontSize: 34,
+              color: Colors.white.withOpacity(0.8),
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 36),
-          Text(
-            "${gameService.totalScore}",
-            style: TextStyle(
-              fontSize: 180,
-              fontWeight: FontWeight.w900,
-              color: rankColor,
-              letterSpacing: -4,
-              height: 1.0,
-            ),
+        const SizedBox(height: 8),
+        Text(
+          getAccuracyText(),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 30,
+            color: Colors.white.withOpacity(0.65),
+            fontWeight: FontWeight.w700,
           ),
-          if (isOneShotMode)
-            Text(
-              "/ 7000",
-              style: TextStyle(
-                fontSize: 44,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          const SizedBox(height: 28),
-          _buildRankBadge(size: 320, emojiSize: 175, labelSize: 54),
-          const SizedBox(height: 22),
-          if (!isOneShotMode)
-            Text(
-              gameService.percentile,
-              style: TextStyle(
-                fontSize: 32,
-                color: Colors.grey.shade300,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          if (!isOneShotMode) const SizedBox(height: 12),
-          Text(
-            getAccuracyText(),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 28,
-              color: Colors.grey.shade400,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 32,
-              vertical: 24,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.lightBlueAccent.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: Colors.lightBlueAccent.withOpacity(0.30),
-                width: 2,
-              ),
-            ),
-            child: Text(
-              getPersonalBestText(),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                height: 1.2,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 32,
-              vertical: 24,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: Colors.amber.withOpacity(0.35),
-                width: 2,
-              ),
-            ),
-            child: Text(
-              getRivalChallengeText(),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                height: 1.2,
-              ),
-            ),
-          ),
-          const SizedBox(height: 34),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 32,
-              vertical: 28,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: const Text(
-              "Can you beat this?",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 38,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 26),
-          Text(
-            "Play 7 Seconds",
-            style: TextStyle(
-              fontSize: 24,
-              color: Colors.grey.shade500,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 50),
+        const StoryFooter(),
+      ],
     );
   }
 
-  Widget _buildHiddenShareCard() {
+  /// Shows the closest tap if it was within 30ms, otherwise the score (or
+  /// rounds) to beat.
+  Widget _buildChallengeCard(PlayerProfile profile) {
+    final ms = gameService.closestTapMs;
+    final modeEmoji = GameConstants.modeEmoji(gameService.mode);
+    final modeName = GameConstants.modeName(gameService.mode);
+
+    final String bigText;
+    final String bigLabel;
+
+    if (ms != null) {
+      bigText = "${ms}ms";
+      bigLabel = "MY CLOSEST TO 7.00s";
+    } else if (gameService.isEndlessMode) {
+      bigText = "${gameService.totalScore}";
+      bigLabel = "ROUNDS TO BEAT";
+    } else {
+      bigText = "${gameService.totalScore}";
+      bigLabel = "SCORE TO BEAT";
+    }
+
+    return ChallengeShareCard(
+      profile: profile,
+      line: _challengeLine,
+      bigText: bigText,
+      bigLabel: bigLabel,
+      detail: "$modeEmoji $modeName  •  Rank: ${gameService.reactionRank}",
+    );
+  }
+
+  /// The share cards are rendered off-screen so they can be captured.
+  Widget _buildHiddenShareCards() {
+    final profile = ProfileService.current;
+
     return Positioned(
       left: -1400,
       top: 0,
-      child: RepaintBoundary(
-        key: _shareCardKey,
-        child: _buildShareCardContent(),
+      child: Column(
+        children: [
+          RepaintBoundary(
+            key: _shareCardKey,
+            child: _buildFlexCard(profile),
+          ),
+          RepaintBoundary(
+            key: _challengeCardKey,
+            child: _buildChallengeCard(profile),
+          ),
+        ],
       ),
     );
   }
@@ -685,13 +781,12 @@ class _ResultPopupState extends State<ResultPopup> {
   @override
   Widget build(BuildContext context) {
     final rankColor = getRankColor();
-    final modeEmoji = GameConstants.modeEmoji(gameService.mode);
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(
-        horizontal: 20,
-        vertical: 20,
+        horizontal: 8,
+        vertical: 8,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(32),
@@ -699,194 +794,169 @@ class _ResultPopupState extends State<ResultPopup> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          _buildHiddenShareCard(),
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.82,
+          _buildHiddenShareCards(),
+          // Fills the dialog height; the rank badge takes whatever space is
+          // left so everything fits on one screen without scrolling.
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
             ),
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 22,
-                  vertical: 12,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      "$modeEmoji ${getModeTitle()}",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: onSurface.withOpacity(0.55),
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      "${gameService.totalScore}",
-                      style: TextStyle(
-                        fontSize: 46,
-                        fontWeight: FontWeight.w900,
+            child: Column(
+              children: [
+                // Spare space is split 4:1 between the animal and the gap
+                // above the buttons, which keeps the rank and stats up high.
+                Expanded(
+                  flex: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: FittedBox(
+                      child: EmojiBadge(
+                        emoji: _rankEmoji,
                         color: rankColor,
-                        letterSpacing: -2,
+                        size: 340,
+                        emojiSize: 230,
+                        borderWidth: 7,
                       ),
                     ),
-                    if (isOneShotMode)
-                      Text(
-                        "/ 7000",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: onSurface.withOpacity(0.4),
-                          fontWeight: FontWeight.bold,
+                  ),
+                ),
+                _buildRankHeader(rankColor, onSurface),
+                const SizedBox(height: 10),
+                _buildStatsBox(onSurface),
+                const Spacer(),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSharing ? null : _shareResultCard,
+                    icon: _isSharing
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: onSurface,
+                            ),
+                          )
+                        : const Icon(Icons.ios_share),
+                    label: Text(
+                      _isSharing
+                          ? "Preparing Card..."
+                          : MysteryBoxService.shareRewardAvailable
+                              ? "Share & get a free 🎁"
+                              : "Share Result Card",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: onSurface.withOpacity(0.08),
+                      foregroundColor: onSurface,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 9,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: _copyCaption,
+                        icon: const Icon(Icons.copy_rounded, size: 18),
+                        label: const Text("Caption"),
+                        style: TextButton.styleFrom(
+                          foregroundColor: onSurface.withOpacity(0.6),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
                         ),
                       ),
-                    const SizedBox(height: 6),
-                    _buildRankBadge(size: 285, emojiSize: 160, labelSize: 32),
-                    const SizedBox(height: 6),
-                    Text(
-                      isOneShotMode
-                          ? getAccuracyText()
-                          : "${gameService.percentile} • ${getAccuracyText()}",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: onSurface.withOpacity(0.7),
-                        fontWeight: FontWeight.w800,
-                      ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      getReplayMessage(),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: onSurface.withOpacity(0.85),
-                        fontWeight: FontWeight.w900,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildRivalChallengeBox(),
-                    const SizedBox(height: 6),
-                    _buildPersonalBestBox(),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _isSharing ? null : _shareResultCard,
-                        icon: _isSharing
+                    Expanded(
+                      child: TextButton.icon(
+                        onPressed: _isSaving ? null : _saveResultImage,
+                        icon: _isSaving
                             ? SizedBox(
-                                width: 18,
-                                height: 18,
+                                width: 16,
+                                height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: onSurface,
+                                  color: onSurface.withOpacity(0.6),
                                 ),
                               )
-                            : const Icon(Icons.ios_share),
+                            : const Icon(Icons.download_rounded, size: 18),
                         label: Text(
-                          _isSharing
-                              ? "Preparing Card..."
-                              : "Share Result Card",
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          _isSaving ? "Saving..." : "Save",
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: onSurface.withOpacity(0.08),
-                          foregroundColor: onSurface,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 9,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: onSurface.withOpacity(0.6),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton.icon(
-                            onPressed: _copyCaption,
-                            icon: const Icon(Icons.copy_rounded, size: 18),
-                            label: const Text("Copy Caption"),
-                            style: TextButton.styleFrom(
-                              foregroundColor: onSurface.withOpacity(0.6),
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                            ),
-                          ),
+                    Expanded(
+                      child: TextButton(
+                        onPressed: _isSharing ? null : _shareChallengeCard,
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.cyanAccent,
+                          padding: const EdgeInsets.symmetric(vertical: 6),
                         ),
-                        Expanded(
-                          child: TextButton.icon(
-                            onPressed: _isSaving ? null : _saveResultImage,
-                            icon: _isSaving
-                                ? SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: onSurface.withOpacity(0.6),
-                                    ),
-                                  )
-                                : const Icon(Icons.download_rounded, size: 18),
-                            label: Text(_isSaving ? "Saving..." : "Save Image"),
-                            style: TextButton.styleFrom(
-                              foregroundColor: onSurface.withOpacity(0.6),
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          gameService.resetToReady();
-                          gameService.startGame();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: rankColor,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 9,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                        ),
-                        child: Text(
-                          isOneShotMode ? "Try Again" : "Run It Back",
-                          style: const TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        gameService.resetToReady();
-                      },
-                      child: Text(
-                        "Back to menu",
-                        style: TextStyle(
-                          color: onSurface.withOpacity(0.5),
-                          fontWeight: FontWeight.bold,
+                        child: const Text(
+                          "🎯 Challenge",
+                          style: TextStyle(fontWeight: FontWeight.w900),
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 2),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      gameService.resetToReady();
+                      gameService.startGame();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: rankColor,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 9,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: Text(
+                      isOneShotMode ? "Try Again" : "Run It Back",
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    gameService.resetToReady();
+                  },
+                  child: Text(
+                    "Back to menu",
+                    style: TextStyle(
+                      color: onSurface.withOpacity(0.5),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

@@ -1,3 +1,5 @@
+import '../utils/constants.dart';
+
 class TapResult {
   final int targetTime;
   final int actualTime;
@@ -21,6 +23,13 @@ class TapResult {
   }
 
   bool get isPerfect => difference.abs() <= 10;
+
+  /// Exactly 7.000s (0ms off). Pays a jackpot.
+  bool get isBullseye => difference == 0;
+
+  /// Just outside perfect: close enough to hurt.
+  bool get isNearMiss =>
+      difference.abs() > 10 && difference.abs() <= GameConstants.nearMissMaxMs;
 
   bool get isAccurate => difference.abs() < 100;
 

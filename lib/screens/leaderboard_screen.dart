@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/leaderboard_entry.dart';
+import '../services/profile_service.dart';
+import '../services/season_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants.dart';
 import '../widgets/emoji_badge.dart';
+import '../widgets/profile_card_widget.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({Key? key}) : super(key: key);
@@ -156,7 +159,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   Widget build(BuildContext context) {
     final allEntries = StorageService.getLeaderboardEntries();
     final entries = _filteredEntries(allEntries);
-    final playerName = StorageService.getPlayerName();
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return Scaffold(
@@ -189,45 +191,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           const SizedBox(height: 14),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 13,
-              ),
-              decoration: BoxDecoration(
-                color: onSurface.withOpacity(0.07),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.person,
-                    color: onSurface,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      "Playing as $playerName",
-                      style: TextStyle(
-                        color: onSurface,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _showNameDialog,
-                    child: Text(
-                      "Edit",
-                      style: TextStyle(
-                        color: onSurface.withOpacity(0.6),
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ],
+            child: ProfileCard(
+              profile: ProfileService.current,
+              compact: true,
+              onTap: _showNameDialog,
+              trailing: Icon(
+                Icons.edit,
+                size: 18,
+                color: ProfileService.banner.colors.isEmpty
+                    ? onSurface.withOpacity(0.6)
+                    : Colors.white70,
               ),
             ),
           ),
@@ -287,6 +260,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ],
             ),
           ),
+          if (_selectedMode == GameMode.endless) _buildSeasonBanner(),
           const SizedBox(height: 10),
           Expanded(
             child: ListView.builder(
@@ -312,9 +286,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     borderRadius: BorderRadius.circular(20),
                     border: placement <= 3
                         ? Border.all(
-                      color: placementColor.withOpacity(0.7),
-                      width: 1.5,
-                    )
+                            color: placementColor.withOpacity(0.7),
+                            width: 1.5,
+                          )
                         : null,
                   ),
                   child: Row(
@@ -323,25 +297,25 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         width: 46,
                         child: placement <= 3
                             ? EmojiBadge(
-                          emoji: placement == 1
-                              ? "🥇"
-                              : placement == 2
-                              ? "🥈"
-                              : "🥉",
-                          color: placementColor,
-                          size: 44,
-                          emojiSize: 24,
-                          borderWidth: 1.5,
-                        )
+                                emoji: placement == 1
+                                    ? "🥇"
+                                    : placement == 2
+                                        ? "🥈"
+                                        : "🥉",
+                                color: placementColor,
+                                size: 44,
+                                emojiSize: 24,
+                                borderWidth: 1.5,
+                              )
                             : Text(
-                          "#$placement",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: placementColor,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
+                                "#$placement",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: placementColor,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -418,6 +392,46 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   ),
                 );
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSeasonBanner() {
+    final prizes = SeasonService.placementPrizes;
+    const ticks = GameConstants.currencyEmoji;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.amber.withOpacity(0.5), width: 1.5),
+      ),
+      child: Column(
+        children: [
+          Text(
+            "🏁 Season ends in ${SeasonService.timeLeft}",
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: Colors.amber,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "🥇 ${prizes[0]} $ticks   🥈 ${prizes[1]} $ticks   🥉 ${prizes[2]} $ticks\n"
+            "Everyone who plays gets ${SeasonService.participationPrize} $ticks",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              height: 1.4,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
             ),
           ),
         ],

@@ -41,12 +41,12 @@ class EmojiBadge extends StatelessWidget {
           ),
           boxShadow: glow
               ? [
-            BoxShadow(
-              color: color.withOpacity(0.45),
-              blurRadius: size * 0.22,
-              spreadRadius: size * 0.015,
-            ),
-          ]
+                  BoxShadow(
+                    color: color.withOpacity(0.45),
+                    blurRadius: size * 0.22,
+                    spreadRadius: size * 0.015,
+                  ),
+                ]
               : null,
         ),
         child: Center(

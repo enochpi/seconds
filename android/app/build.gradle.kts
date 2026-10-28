@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.spartalabs.sevenseconds"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
 
     // ✅ FIXED NDK VERSION
     ndkVersion = "28.2.13676358"
@@ -32,7 +32,7 @@ android {
     defaultConfig {
         applicationId = "com.spartalabs.sevenseconds"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

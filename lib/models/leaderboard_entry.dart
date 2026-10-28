@@ -40,7 +40,7 @@ class LeaderboardEntry {
       rank: map['rank'] ?? 'Unknown',
       accuracyText: map['accuracyText'] ?? '',
       mode: GameMode.values.firstWhere(
-            (mode) => mode.name == map['mode'],
+        (mode) => mode.name == map['mode'],
         orElse: () => GameMode.classic,
       ),
       createdAt: DateTime.tryParse(map['createdAt'] ?? '') ?? DateTime.now(),

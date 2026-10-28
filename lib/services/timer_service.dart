@@ -34,6 +34,6 @@ class TimerService {
     _timer = null;
     _stopwatch?.stop();
     _stopwatch?.reset(); // ADDED: Reset the stopwatch
-    _stopwatch = null;   // ADDED: Clear the reference
+    _stopwatch = null; // ADDED: Clear the reference
   }
 }

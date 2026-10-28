@@ -28,7 +28,8 @@ class SoundService {
     for (final entry in _players.entries) {
       await entry.value.setPlayerMode(PlayerMode.lowLatency);
       await entry.value.setReleaseMode(ReleaseMode.stop);
-      await entry.value.setSource(AssetSource('sounds/${_assetName(entry.key)}'));
+      await entry.value
+          .setSource(AssetSource('sounds/${_assetName(entry.key)}'));
     }
   }
 

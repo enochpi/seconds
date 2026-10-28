@@ -70,8 +70,8 @@ class ResultsDisplay extends StatelessWidget {
     Color diffColor = result.isAccurate
         ? GameConstants.accurateColor
         : result.isOkay
-        ? GameConstants.okayColor
-        : GameConstants.inaccurateColor;
+            ? GameConstants.okayColor
+            : GameConstants.inaccurateColor;
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 6),

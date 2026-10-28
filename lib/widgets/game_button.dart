@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/cosmetics_service.dart';
 import '../services/storage_service.dart';
+import 'cosmetic_widgets.dart';
 
 class GameButton extends StatefulWidget {
   final bool enabled;
@@ -72,18 +74,13 @@ class _GameButtonState extends State<GameButton>
   Widget build(BuildContext context) {
     return ScaleTransition(
       scale: _scale,
-      child: ElevatedButton(
-        onPressed: widget.enabled ? _handleTap : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: widget.color,
-          foregroundColor: Colors.white,
-          shape: const CircleBorder(),
-          padding: const EdgeInsets.all(40),
-          elevation: 8,
-        ),
-        child: const Icon(
-          Icons.touch_app,
-          size: 60,
+      child: GestureDetector(
+        onTap: widget.enabled ? _handleTap : null,
+        child: SkinnedButtonFace(
+          skin: CosmeticsService.button,
+          defaultColor: widget.color,
+          size: 140,
+          enabled: widget.enabled,
         ),
       ),
     );

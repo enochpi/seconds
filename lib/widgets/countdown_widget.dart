@@ -4,10 +4,18 @@ class CountdownWidget extends StatefulWidget {
   final int countdownValue;
   final bool isActive;
 
+  /// Shown instead of the number, e.g. "GO!".
+  final String? text;
+  final double size;
+  final Color color;
+
   const CountdownWidget({
     Key? key,
     required this.countdownValue,
     required this.isActive,
+    this.text,
+    this.size = 160,
+    this.color = Colors.orange,
   }) : super(key: key);
 
   @override
@@ -83,8 +91,8 @@ class _CountdownWidgetState extends State<CountdownWidget>
 
     return Center(
       child: SizedBox(
-        width: 160,
-        height: 120,
+        width: widget.size,
+        height: widget.size * 0.75,
         child: AnimatedBuilder(
           animation: _animationController,
           builder: (context, child) {
@@ -95,13 +103,19 @@ class _CountdownWidgetState extends State<CountdownWidget>
                 child: FittedBox(
                   fit: BoxFit.contain,
                   child: Text(
-                    widget.countdownValue.toString(),
+                    widget.text ?? widget.countdownValue.toString(),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 72,
                       fontWeight: FontWeight.w900,
-                      color: Colors.orange,
+                      color: widget.color,
                       height: 1.0,
+                      shadows: [
+                        Shadow(
+                          color: widget.color.withOpacity(0.6),
+                          blurRadius: 30,
+                        ),
+                      ],
                     ),
                   ),
                 ),

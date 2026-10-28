@@ -1,10 +1,16 @@
 import 'dart:async';
+import 'dart:math';
 
 import '../models/achievement.dart';
 import '../models/leaderboard_entry.dart';
+import '../models/quest.dart';
 import '../models/tap_result.dart';
 import '../utils/constants.dart';
 import '../utils/scoring_utils.dart';
+import 'profile_service.dart';
+import 'quest_service.dart';
+import 'season_service.dart';
+import 'shop_service.dart';
 import 'storage_service.dart';
 import 'timer_service.dart';
 
@@ -15,6 +21,14 @@ enum GameState {
   ended,
 }
 
+enum WinStreakOutcome {
+  /// Endless run, or a miss with no streak to lose.
+  none,
+  extended,
+  shielded,
+  lost,
+}
+
 class GameService {
   final TimerService _timerService = TimerService();
 
@@ -22,8 +36,7 @@ class GameService {
 
   GameMode _mode = GameMode.classic;
 
-  List<int> _activeTargetTimes =
-  GameConstants.getTargetTimes(GameMode.classic);
+  List<int> _activeTargetTimes = GameConstants.getTargetTimes(GameMode.classic);
 
   int _currentTargetIndex = 0;
 
@@ -46,6 +59,20 @@ class GameService {
   bool _isNewModePersonalBest = false;
 
   int _previousModePersonalBest = 0;
+
+  int _lastRunTicks = 0;
+
+  WinStreakOutcome _lastStreakOutcome = WinStreakOutcome.none;
+  int _streakBeforeRun = 0;
+  List<Quest> _questsFinishedThisRun = const [];
+
+  // Endless mode: the round being played (1-based), continues bought this
+  // run, and whether we're paused between rounds or waiting on a continue.
+  int _endlessRound = 1;
+  int _continuesUsed = 0;
+  bool _betweenRounds = false;
+  bool _awaitingContinue = false;
+  Timer? _roundDelayTimer;
 
   GameService() {
     _loadSavedData();
@@ -81,6 +108,33 @@ class GameService {
 
   int get previousModePersonalBest => _previousModePersonalBest;
 
+  /// Ticks earned by the run that just ended.
+  int get lastRunTicks => _lastRunTicks;
+
+  /// Back-to-back good runs (see [GameConstants.winStreakMinStars]).
+  int get winStreak => StorageService.getWinStreak();
+
+  /// What the run that just ended did to the win streak.
+  WinStreakOutcome get lastStreakOutcome => _lastStreakOutcome;
+
+  /// The win streak before the run that just ended (shown when it's lost or
+  /// saved by a shield).
+  int get streakBeforeRun => _streakBeforeRun;
+
+  /// How close (in ms) the best tap of the last run got to its target, for
+  /// the challenge card. Null in Endless, where rounds are what count, or if
+  /// no tap got within [GameConstants.nearMissMaxMs].
+  int? get closestTapMs {
+    if (isEndlessMode || _tapResults.isEmpty) return null;
+
+    final closest =
+        _tapResults.map((result) => result.difference.abs()).reduce(min);
+    return closest <= GameConstants.nearMissMaxMs ? closest : null;
+  }
+
+  /// Daily quests the run that just ended completed.
+  List<Quest> get questsFinishedThisRun => _questsFinishedThisRun;
+
   int get currentModePersonalBest {
     return StorageService.getModeBestScore(_mode);
   }
@@ -95,12 +149,28 @@ class GameService {
 
   bool get isBlindMode =>
       _mode == GameMode.blind ||
-          _mode == GameMode.hardcore ||
-          _mode == GameMode.daily;
+      _mode == GameMode.hardcore ||
+      _mode == GameMode.endless;
 
   bool get isHardcoreMode => _mode == GameMode.hardcore;
 
-  bool get isDailyChallengeMode => _mode == GameMode.daily;
+  bool get isEndlessMode => _mode == GameMode.endless;
+
+  int get endlessRound => _endlessRound;
+
+  int get endlessMarginMs => GameConstants.endlessMarginMs(_endlessRound);
+
+  bool get isBetweenRounds => _betweenRounds;
+
+  /// Price of the next continue, or null if none are left this run.
+  int? get nextContinueCost {
+    final costs = GameConstants.endlessContinueCosts;
+
+    return _continuesUsed < costs.length ? costs[_continuesUsed] : null;
+  }
+
+  int get continuesLeft =>
+      GameConstants.endlessContinueCosts.length - _continuesUsed;
 
   int get currentTargetNumber {
     if (_activeTargetTimes.isEmpty) return 0;
@@ -136,20 +206,16 @@ class GameService {
     if (_tapResults.isEmpty) return null;
 
     return _tapResults
-        .map((result) => result.difference.abs())
-        .reduce((a, b) => a + b) /
+            .map((result) => result.difference.abs())
+            .reduce((a, b) => a + b) /
         _tapResults.length;
   }
 
-  int get dailyTargetTime => GameConstants.dailyTargetTime;
-
-  String get dailyChallengeId => GameConstants.dailyChallengeId;
-
-  int get todayDailyBestScore {
-    return StorageService.getDailyChallengeBestScore(dailyChallengeId);
-  }
-
   Function(GameState)? onStateChanged;
+
+  /// Endless: the player missed a round. The UI should offer a continue
+  /// and then call [continueEndlessRun] or [endEndlessRun].
+  Function(TapResult)? onEndlessMiss;
 
   Function(int)? onCountdownUpdate;
 
@@ -237,6 +303,68 @@ class GameService {
     }
 
     return "🦥 Sleeping Sloth";
+  }
+
+  // Rank thresholds in ascending order, matching reactionRank above.
+  static const List<MapEntry<int, String>> _rankTiers = [
+    MapEntry(5000, "🐢 Steady Turtle"),
+    MapEntry(6000, "🐍 Cobra Reflexes"),
+    MapEntry(6600, "🐺 Rising Wolf"),
+    MapEntry(6700, "🐕 Playful Pup"),
+    MapEntry(6750, "🐈 Alley Cat"),
+    MapEntry(6800, "🦊 Fast Fox"),
+    MapEntry(6850, "🐆 Cheetah"),
+    MapEntry(6875, "🦅 Peregrine Falcon"),
+    MapEntry(6900, "🥷 Shadow Ninja"),
+    MapEntry(6925, "🎯 Esports Pro"),
+    MapEntry(6950, "⚡ Lightning Reflexes"),
+    MapEntry(6975, "🏎️ F1 Champion"),
+  ];
+
+  int get _rankScore {
+    if (_tapResults.isEmpty || _totalScore == 0) return 0;
+
+    final averageError = averageErrorMs ?? 9999;
+    return (7000 - (averageError * 12)).clamp(0, 7000).toInt();
+  }
+
+  MapEntry<int, String>? get _nextRankTier {
+    final score = _rankScore;
+
+    for (final tier in _rankTiers) {
+      if (score < tier.key) return tier;
+    }
+
+    return null;
+  }
+
+  /// 1–5 star rating spread across all ranks (Sloth = 1, F1 = 5), rounded to
+  /// the nearest quarter star. Progress toward the next rank counts too.
+  double get rankStars {
+    final score = _rankScore;
+    final tierIndex = _rankTiers.where((tier) => score >= tier.key).length;
+
+    var progress = tierIndex.toDouble();
+
+    if (tierIndex < _rankTiers.length) {
+      final floor = tierIndex == 0 ? 0 : _rankTiers[tierIndex - 1].key;
+      final ceiling = _rankTiers[tierIndex].key;
+      progress += (score - floor) / (ceiling - floor);
+    }
+
+    final stars = 1 + progress * 4 / _rankTiers.length;
+    return ((stars * 4).round() / 4).clamp(1.0, 5.0);
+  }
+
+  /// The rank directly above the current one, or null at the top rank.
+  String? get nextRank => _nextRankTier?.value;
+
+  /// How many ms the average error needs to drop to reach [nextRank].
+  int? get msToNextRank {
+    final tier = _nextRankTier;
+    if (tier == null || _tapResults.isEmpty) return null;
+
+    return ((tier.key - _rankScore) / 12).ceil();
   }
 
   String get percentile {
@@ -382,14 +510,14 @@ class GameService {
       ),
       Achievement(
         id: 'daily_challenger',
-        title: "📅 Daily Challenger",
-        description: "Play the Daily Challenge",
+        title: "♾️ Endless Runner",
+        description: "Play Endless mode",
         unlocked: unlocked('daily_challenger'),
       ),
       Achievement(
         id: 'daily_destroyer',
-        title: "🌎 Daily Destroyer",
-        description: "Score 6900+ in the Daily Challenge",
+        title: "🌎 Endless Legend",
+        description: "Clear 15 rounds in Endless",
         unlocked: unlocked('daily_destroyer'),
       ),
       Achievement(
@@ -424,7 +552,7 @@ class GameService {
 
     _timerService.startPeriodicTimer(
       const Duration(seconds: 1),
-          (timer) {
+      (timer) {
         _countdownValue--;
 
         if (_countdownValue > 0) {
@@ -446,12 +574,22 @@ class GameService {
 
     _timerService.startPeriodicTimer(
       Duration(milliseconds: GameConstants.updateInterval),
-          (timer) {
+      (timer) {
         if (_state != GameState.playing) {
           return;
         }
 
-        if (currentGameTime >= 20.0) {
+        if (isEndlessMode) {
+          // Not tapping at all counts as a miss once the window has passed.
+          final lateBy =
+              _timerService.elapsedMilliseconds - GameConstants.endlessTargetMs;
+
+          if (!_betweenRounds &&
+              !_awaitingContinue &&
+              lateBy > endlessMarginMs) {
+            _handleEndlessTap();
+          }
+        } else if (currentGameTime >= 20.0) {
           _endGame();
           return;
         }
@@ -464,6 +602,11 @@ class GameService {
   void handleTap() {
     if (_state != GameState.playing) return;
 
+    if (isEndlessMode) {
+      _handleEndlessTap();
+      return;
+    }
+
     if (_currentTargetIndex >= _activeTargetTimes.length) return;
 
     final tapTime = _timerService.elapsedMilliseconds;
@@ -472,7 +615,7 @@ class GameService {
 
     int score;
 
-    if (_mode == GameMode.hardcore || _mode == GameMode.daily) {
+    if (_mode == GameMode.hardcore) {
       score = (7000 - (difference.abs() * 7)).clamp(0, 7000).toInt();
     } else {
       score = ScoringUtils.calculateScore(difference);
@@ -505,6 +648,97 @@ class GameService {
     if (_currentTargetIndex >= _activeTargetTimes.length) {
       _endGame();
     }
+  }
+
+  // ENDLESS MODE
+
+  /// A hit scores 1 (one round cleared), a miss scores 0.
+  void _handleEndlessTap() {
+    if (_betweenRounds || _awaitingContinue) return;
+
+    final tapTime = _timerService.elapsedMilliseconds;
+    final difference = tapTime - GameConstants.endlessTargetMs;
+    final hit = difference.abs() <= endlessMarginMs;
+
+    final result = TapResult(
+      targetTime: GameConstants.endlessTargetMs,
+      actualTime: tapTime,
+      difference: difference,
+      score: hit ? 1 : 0,
+    );
+
+    _tapResults.add(result);
+    _timerService.stopStopwatch();
+
+    if (hit) {
+      _totalScore = _endlessRound;
+      _endlessRound++;
+      _currentStreak++;
+      _bestRunStreak = max(_bestRunStreak, _currentStreak);
+
+      onTapResult?.call(result);
+      _startEndlessRoundAfterPause();
+      return;
+    }
+
+    _currentStreak = 0;
+    onTapResult?.call(result);
+
+    if (nextContinueCost == null) {
+      _endGame();
+      return;
+    }
+
+    _awaitingContinue = true;
+    onEndlessMiss?.call(result);
+  }
+
+  void _startEndlessRoundAfterPause() {
+    _betweenRounds = true;
+
+    _roundDelayTimer?.cancel();
+    _roundDelayTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (_state != GameState.playing) return;
+
+      _betweenRounds = false;
+      _timerService.startStopwatch();
+      onGameTimeUpdate?.call(currentGameTimeDisplay);
+    });
+  }
+
+  /// Pays for a continue and replays the round that was missed. Returns
+  /// false if the player can't afford it.
+  Future<bool> continueEndlessRun() async {
+    final cost = nextContinueCost;
+    if (!_awaitingContinue || cost == null) return false;
+
+    final paid = await StorageService.spendTicks(cost);
+    if (!paid) return false;
+
+    _continuesUsed++;
+    _awaitingContinue = false;
+    _startEndlessRoundAfterPause();
+
+    return true;
+  }
+
+  void endEndlessRun() {
+    if (!_awaitingContinue) return;
+
+    _awaitingContinue = false;
+    _endGame();
+  }
+
+  /// Ticks earned for clearing [rounds] rounds, before the pet bonus.
+  static int endlessTicksForRounds(int rounds) {
+    var ticks = 0;
+
+    for (var round = 1; round <= rounds; round++) {
+      ticks += GameConstants.endlessRoundTicks(round) +
+          GameConstants.endlessMilestoneBonus(round);
+    }
+
+    return ticks;
   }
 
   Future<void> _endGame() async {
@@ -556,12 +790,99 @@ class GameService {
     await _savePersistentAchievements();
     await _saveLeaderboardEntry();
 
-    if (_mode == GameMode.daily) {
-      await StorageService.saveDailyChallengeScore(
-        challengeId: dailyChallengeId,
-        score: _totalScore,
+    if (isEndlessMode) {
+      await StorageService.saveSeasonBest(
+        SeasonService.currentSeasonIndex,
+        _totalScore,
       );
     }
+
+    await _updateWinStreak();
+
+    _lastRunTicks = _calculateRunTicks();
+
+    if (_lastRunTicks > 0) {
+      await StorageService.addTicks(_lastRunTicks);
+    }
+
+    _questsFinishedThisRun = await QuestService.recordRun(
+      RunSummary(
+        mode: _mode,
+        stars: rankStars,
+        perfectTaps: _perfectTapCount,
+        endlessRounds: isEndlessMode ? _totalScore : 0,
+        winStreak: winStreak,
+      ),
+    );
+
+    await ProfileService.recordRun(
+      perfectTaps: _perfectTapCount,
+      winStreak: winStreak,
+    );
+  }
+
+  int get _perfectTapCount =>
+      _tapResults.where((result) => result.isPerfect).length;
+
+  /// Classic, Blind and Hardcore runs at [GameConstants.winStreakMinStars] or
+  /// more extend the win streak; anything less ends it, unless a Streak
+  /// Shield saves it. Endless runs leave it alone.
+  Future<void> _updateWinStreak() async {
+    _lastStreakOutcome = WinStreakOutcome.none;
+    _streakBeforeRun = winStreak;
+
+    if (isEndlessMode || _tapResults.isEmpty) return;
+
+    if (rankStars >= GameConstants.winStreakMinStars) {
+      await StorageService.setWinStreak(_streakBeforeRun + 1);
+      _lastStreakOutcome = WinStreakOutcome.extended;
+      return;
+    }
+
+    if (_streakBeforeRun == 0) return;
+
+    final shields = StorageService.getStreakShields();
+
+    if (shields > 0 &&
+        _streakBeforeRun >= GameConstants.streakShieldMinStreak) {
+      await StorageService.setStreakShields(shields - 1);
+      _lastStreakOutcome = WinStreakOutcome.shielded;
+      return;
+    }
+
+    await StorageService.setWinStreak(0);
+    _lastStreakOutcome = WinStreakOutcome.lost;
+  }
+
+  /// The Ticks multiplier the last run earned from the win streak.
+  double get lastStreakMultiplier =>
+      _lastStreakOutcome == WinStreakOutcome.extended
+          ? GameConstants.winStreakMultiplier(winStreak)
+          : 1.0;
+
+  // Classic-style modes: (2 + 3 per star) x the mode multiplier, plus a bonus
+  // for every perfect tap, x the win streak multiplier. Endless pays per round
+  // cleared. Exact 7.000s taps add a jackpot. Everything gets the pet and
+  // profile frame bonuses on top.
+  int _calculateRunTicks() {
+    if (_tapResults.isEmpty || _totalScore <= 0) return 0;
+
+    // The pet and profile frame bonuses add together (+20% and +3% = +23%).
+    final bonus = (ShopService.equippedPet?.bonus ?? 0) +
+        ProfileService.getProfileBoost();
+
+    final baseTicks = isEndlessMode
+        ? endlessTicksForRounds(_totalScore)
+        : ((GameConstants.baseRunTicks +
+                        rankStars * GameConstants.ticksPerStar) *
+                    GameConstants.modeTicksMultiplier(_mode) +
+                _perfectTapCount * GameConstants.perfectTapBonusTicks) *
+            lastStreakMultiplier;
+
+    final bullseyes = _tapResults.where((result) => result.isBullseye).length;
+    final jackpot = bullseyes * GameConstants.bullseyeBonusTicks;
+
+    return ((baseTicks + jackpot) * (1 + bonus)).round();
   }
 
   Future<void> _saveLeaderboardEntry() async {
@@ -601,11 +922,12 @@ class GameService {
       idsToUnlock.add('hardcore_legend');
     }
 
-    if (_mode == GameMode.daily && _totalScore > 0) {
+    // The ids are kept from when Endless was the Daily Challenge.
+    if (isEndlessMode && _totalScore > 0) {
       idsToUnlock.add('daily_challenger');
     }
 
-    if (_mode == GameMode.daily && _totalScore >= 6900) {
+    if (isEndlessMode && _totalScore >= 15) {
       idsToUnlock.add('daily_destroyer');
     }
 
@@ -649,6 +971,12 @@ class GameService {
     _activeTargetTimes = GameConstants.getTargetTimes(_mode);
 
     _countdownValue = GameConstants.countdownDuration;
+
+    _roundDelayTimer?.cancel();
+    _endlessRound = 1;
+    _continuesUsed = 0;
+    _betweenRounds = false;
+    _awaitingContinue = false;
   }
 
   void resetToReady() {
@@ -680,6 +1008,7 @@ class GameService {
   }
 
   void dispose() {
+    _roundDelayTimer?.cancel();
     _timerService.dispose();
   }
 }
